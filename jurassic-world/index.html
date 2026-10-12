@@ -124,6 +124,8 @@ kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--li
     <p>You've landed on the beach below the main gate. Walk the park on foot, recover <strong>10 pieces of amber</strong> and log all <strong>7 species</strong>. The T-Rex paddock fence is breached, and the raptor pen gate is open.</p>
     <div class="keys" id="keysDesktop">
       <div><kbd>W A S D</kbd> Walk</div>
+      <div><kbd>← →</kbd> Turn</div>
+      <div><kbd>↑ ↓</kbd> Walk</div>
       <div><kbd>Mouse</kbd> Look</div>
       <div><kbd>Shift</kbd> Sprint</div>
       <div><kbd>Space</kbd> Jump</div>
@@ -753,7 +755,7 @@ if (isTouch) { $('#keysDesktop').hidden = true; $('#keysTouch').hidden = false; 
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'KeyM') setMuted(!muted);
-  if (e.code === 'Space' && state === 'play') e.preventDefault();
+  if (state === 'play' && (e.code === 'Space' || e.code.startsWith('Arrow'))) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -892,7 +894,8 @@ function damage(amount, who) {
 
 /* ---------- per-frame updates ---------- */
 function updatePlayer(dt) {
-  let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  player.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.4 * dt;
+  let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.x;
   let mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
   const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
   const moving = l > 0.1;

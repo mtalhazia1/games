@@ -12,7 +12,8 @@ A first-person 3D dinosaur park you can walk around in, built with Three.js in a
 
 | Control | Desktop | Touch |
 |---|---|---|
-| Walk | W A S D / arrows | Left stick |
+| Walk | W A S D / ↑ ↓ | Left stick |
+| Turn | ← → or mouse | Drag |
 | Look | Mouse | Drag |
 | Sprint | Shift | RUN |
 | Jump | Space | JUMP |

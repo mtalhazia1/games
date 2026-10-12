@@ -1,0 +1,1105 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Isla Nublar Expedition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@700;900&family=Barlow:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas; field-gear HUD pinned to the corners; one centered briefing card over the scene. */
+:root {
+  --night: #0c1510;
+  --canopy: #1d3324;
+  --amber: #f0a432;
+  --amber-deep: #a8600f;
+  --bone: #efe7d4;
+  --moss: #8fb37a;
+  --alarm: #e04a2f;
+  --glass: rgba(12, 21, 16, 0.72);
+  --line: rgba(239, 231, 212, 0.18);
+  --display: 'Big Shoulders Stencil Display', Impact, 'Arial Narrow', sans-serif;
+  --body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--night); color: var(--bone); font-family: var(--body); }
+canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.hud { position: fixed; pointer-events: none; z-index: 2; }
+.panel { background: var(--glass); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(4px); }
+
+#stats { top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; padding: 10px 12px; display: grid; gap: 7px; min-width: 190px; }
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+.label { font: 600 10px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--moss); }
+.value { font: 900 22px/1 var(--display); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.value.amber { color: var(--amber); }
+.bar { height: 6px; background: rgba(239, 231, 212, 0.12); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 100%; background: var(--moss); transition: width 0.15s linear; }
+#healthBar > i { background: var(--alarm); }
+#staminaBar > i { background: var(--amber); }
+
+#compass { top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); padding: 7px 14px; text-align: center; }
+#heading { font: 900 20px/1 var(--display); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
+#area { font: 600 10px/1.4 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--moss); margin-top: 3px; white-space: nowrap; }
+
+#toast { top: calc(84px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); max-width: min(90vw, 460px); padding: 9px 14px; font: 600 14px/1.35 var(--body); text-align: center; opacity: 0; transition: opacity 0.3s; }
+#toast.show { opacity: 1; }
+#toast.danger { border-color: var(--alarm); color: #ffd9cf; }
+
+#tracker { right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 150px; height: 150px; border-radius: 50%; overflow: hidden; border: 2px solid var(--line); background: var(--glass); }
+#trackerLabel { right: 14px; bottom: calc(172px + env(safe-area-inset-bottom, 0px)); white-space: nowrap; }
+#grid { left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font: 400 11px/1.5 var(--mono); color: rgba(239, 231, 212, 0.7); }
+
+#crosshair { left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: var(--bone); border-radius: 50%; opacity: 0.7; }
+#hurt { inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(170, 20, 10, 0.75)); opacity: 0; transition: opacity 0.25s; }
+
+.overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(12, 21, 16, 0.55), rgba(12, 21, 16, 0.88)); overflow-y: auto; }
+.card { width: min(520px, 100%); padding: 26px 26px 22px; background: rgba(16, 28, 20, 0.92); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+.eyebrow { font: 600 11px/1.4 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--moss); }
+.card h1 { font: 900 clamp(48px, 13vw, 84px)/0.9 var(--display); letter-spacing: 0.03em; margin: 10px 0 12px; color: var(--amber); text-wrap: balance; }
+.card h2 { font: 900 40px/1 var(--display); letter-spacing: 0.04em; margin: 8px 0 10px; text-wrap: balance; }
+.card p { font-size: 16px; line-height: 1.5; margin: 0 0 16px; max-width: 62ch; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; margin: 0 0 20px; padding: 14px 0; border-block: 1px solid var(--line); }
+.keys div { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--bone); background: rgba(239, 231, 212, 0.06); white-space: nowrap; }
+.btn { appearance: none; border: 0; border-radius: 5px; padding: 13px 22px; font: 900 20px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: #1d1205; background: var(--amber); cursor: pointer; }
+.btn:hover { background: #ffb84d; }
+.btn:focus-visible { outline: 3px solid var(--bone); outline-offset: 3px; }
+.btn[disabled] { opacity: 0.5; cursor: progress; }
+.btn.ghost { background: transparent; color: var(--bone); border: 1px solid var(--line); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.fine { font: 400 11px/1.5 var(--mono); color: rgba(239, 231, 212, 0.55); margin-top: 14px; }
+
+#touch { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+#joy { position: absolute; left: 22px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--line); background: rgba(12, 21, 16, 0.35); pointer-events: auto; touch-action: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: rgba(239, 231, 212, 0.35); }
+.tbtn { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--line); background: var(--glass); color: var(--bone); font: 900 15px/1 var(--display); letter-spacing: 0.06em; pointer-events: auto; touch-action: none; }
+.tbtn.on { background: var(--amber); color: #1d1205; }
+#tJump { right: 180px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+#tSprint { right: 180px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+#muteBtn { position: fixed; z-index: 4; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; padding: 8px 10px; font: 600 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone); background: var(--glass); border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+
+@media (max-width: 640px) {
+  #stats { min-width: 150px; padding: 8px 10px; }
+  .value { font-size: 18px; }
+  #compass { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 50%; }
+  #tracker { width: 110px; height: 110px; top: calc(54px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  #trackerLabel, #grid { display: none; }
+  #toast { top: calc(120px + env(safe-area-inset-top, 0px)); }
+  #tJump { right: 22px; }
+  #tSprint { right: 96px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { #toast, .bar > i, #hurt { transition: none; } }
+</style>
+
+<canvas id="scene"></canvas>
+
+<div class="hud panel" id="stats" aria-live="polite">
+  <div class="stat-row"><span class="label">Amber</span><span class="value amber" id="amberCount">0/10</span></div>
+  <div class="stat-row"><span class="label">Species logged</span><span class="value" id="speciesCount">0/7</span></div>
+  <div><div class="stat-row"><span class="label">Health</span></div><div class="bar" id="healthBar"><i></i></div></div>
+  <div><div class="stat-row"><span class="label">Stamina</span></div><div class="bar" id="staminaBar"><i></i></div></div>
+</div>
+<div class="hud panel" id="compass"><div id="heading">N 000°</div><div id="area">Landing Beach</div></div>
+<div class="hud panel" id="toast" role="status"></div>
+<div class="hud label" id="trackerLabel">Motion tracker · 120 m</div>
+<canvas class="hud" id="tracker" width="300" height="300"></canvas>
+<div class="hud" id="grid">GRID X +000 Z +000</div>
+<div class="hud" id="crosshair"></div>
+<div class="hud" id="hurt"></div>
+<button id="muteBtn" type="button">Sound on</button>
+
+<div id="touch" hidden>
+  <div id="joy"><div id="knob"></div></div>
+  <button class="tbtn" id="tJump" type="button">JUMP</button>
+  <button class="tbtn" id="tSprint" type="button">RUN</button>
+</div>
+
+<div class="overlay" id="startScreen">
+  <div class="card">
+    <div class="eyebrow">Field expedition · 120 mi west of Costa Rica</div>
+    <h1>Isla Nublar</h1>
+    <p>You've landed on the beach below the main gate. Walk the park on foot, recover <strong>10 pieces of amber</strong> and log all <strong>7 species</strong>. The T-Rex paddock fence is breached, and the raptor pen gate is open.</p>
+    <div class="keys" id="keysDesktop">
+      <div><kbd>W A S D</kbd> Walk</div>
+      <div><kbd>Mouse</kbd> Look</div>
+      <div><kbd>Shift</kbd> Sprint</div>
+      <div><kbd>Space</kbd> Jump</div>
+      <div><kbd>M</kbd> Sound</div>
+      <div><kbd>Esc</kbd> Pause</div>
+    </div>
+    <div class="keys" id="keysTouch" hidden>
+      <div><kbd>Left stick</kbd> Walk</div>
+      <div><kbd>Drag</kbd> Look</div>
+      <div><kbd>RUN</kbd> Sprint</div>
+      <div><kbd>JUMP</kbd> Jump</div>
+    </div>
+    <div class="actions"><button class="btn" id="startBtn" type="button" disabled>Building island…</button></div>
+    <div class="fine">Amber shows as light beams over the jungle. Red dots on the motion tracker are predators.</div>
+  </div>
+</div>
+
+<div class="overlay" id="pauseScreen" hidden>
+  <div class="card">
+    <div class="eyebrow">Expedition paused</div>
+    <h2 id="pauseTitle">Take a breath</h2>
+    <p id="pauseText">Your progress is kept. Click resume to keep exploring.</p>
+    <div class="actions"><button class="btn" id="resumeBtn" type="button">Resume</button><button class="btn ghost" id="restartBtn" type="button" hidden>Back to the beach</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+
+/* ---------- small math helpers ---------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = mulberry32(19930611);
+const rr = (a, b) => a + (b - a) * rand();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const angDiff = (a, b) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
+
+/* ---------- island layout ---------- */
+const ZONES = {
+  start:   { x: 0,    z: 262,  r: 22, name: 'Landing Beach' },
+  gate:    { x: 0,    z: 180,  r: 26, name: 'Main Gate' },
+  visitor: { x: 0,    z: 50,   r: 40, name: 'Visitor Center' },
+  trex:    { x: -115, z: -35,  r: 58, name: 'T-Rex Paddock' },
+  raptor:  { x: 140,  z: -60,  r: 30, name: 'Raptor Pen' },
+  brachio: { x: 115,  z: 105,  r: 75, name: 'Brachiosaurus Meadow' },
+  trike:   { x: -150, z: 120,  r: 55, name: 'Triceratops Valley' },
+  stego:   { x: 55,   z: -175, r: 55, name: 'Stegosaurus Ridge' },
+  galli:   { x: -45,  z: -150, r: 60, name: 'Gallimimus Plains' },
+};
+const VOLC = { x: -200, z: -215 };
+const zoneList = Object.values(ZONES);
+
+function baseNoise(x, z) {
+  return 4.5 + 3.2 * Math.sin(x * 0.018 + 1.3) * Math.cos(z * 0.015 - 0.7)
+    + 1.8 * Math.sin(x * 0.041 - z * 0.027)
+    + 0.9 * Math.sin(x * 0.09 + 2) * Math.cos(z * 0.083 + 1)
+    + 0.35 * Math.sin(x * 0.23) * Math.sin(z * 0.19);
+}
+for (const zn of zoneList) zn.h = Math.max(baseNoise(zn.x, zn.z), 2.6);
+
+function heightAt(x, z) {
+  let h = baseNoise(x, z);
+  for (const zn of zoneList) {
+    const dx = x - zn.x, dz = z - zn.z, d2 = dx * dx + dz * dz, R = zn.r * 1.15;
+    if (d2 < R * R) h = lerp(h, zn.h, 1 - smooth(zn.r * 0.75, R, Math.sqrt(d2)));
+  }
+  const vx = x - VOLC.x, vz = z - VOLC.z, vd2 = vx * vx + vz * vz;
+  const volc = 58 * Math.exp(-vd2 / (2 * 62 * 62)) - 20 * Math.exp(-vd2 / (2 * 10 * 10));
+  const a = Math.atan2(z, x);
+  const d = Math.hypot(x, z) / 360 + 0.035 * Math.sin(a * 5 + 1) + 0.02 * Math.sin(a * 11);
+  const coast = smooth(0.76, 1.0, d);
+  return lerp(h, -8, coast) + volc * (1 - coast * 0.7);
+}
+
+/* roads as polylines */
+function gapPoint(zone, toward, extra) {
+  const a = Math.atan2(toward.z - zone.z, toward.x - zone.x);
+  return [zone.x + Math.cos(a) * (zone.r + extra), zone.z + Math.sin(a) * (zone.r + extra)];
+}
+const ROADS = [
+  [[0, 285], [0, 180], [0, 70]],
+  [[-18, 45], [-45, 20], gapPoint(ZONES.trex, ZONES.visitor, 4)],
+  [[18, 45], [70, -5], gapPoint(ZONES.raptor, ZONES.visitor, 4)],
+  [[8, 38], [40, -60], [55, -125]],
+  [[17, 58], [60, 80], [92, 95]],
+  [[-17, 58], [-80, 90], [-130, 112]],
+  [[-45, 20], [-30, -60], [-40, -100]],
+];
+const roadSegs = [];
+for (const r of ROADS) for (let i = 0; i < r.length - 1; i++) roadSegs.push([r[i][0], r[i][1], r[i + 1][0], r[i + 1][1]]);
+function segDist(px, pz, ax, az, bx, bz) {
+  const abx = bx - ax, abz = bz - az, t = clamp(((px - ax) * abx + (pz - az) * abz) / (abx * abx + abz * abz), 0, 1);
+  return Math.hypot(px - (ax + abx * t), pz - (az + abz * t));
+}
+function roadDist(x, z) { let m = 1e9; for (const s of roadSegs) m = Math.min(m, segDist(x, z, s[0], s[1], s[2], s[3])); return m; }
+
+/* ---------- renderer / scene ---------- */
+const canvas = $('#scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const FOG = 0xc4d3bd;
+scene.fog = new THREE.Fog(FOG, 70, 560);
+scene.background = new THREE.Color(FOG);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2200);
+camera.rotation.order = 'YXZ';
+
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1600, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color(0x4f8fcb) }, mid: { value: new THREE.Color(0xa9c9dd) }, horizon: { value: new THREE.Color(FOG) } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 horizon; varying vec3 vP; void main(){ float h = vP.y; vec3 c = mix(horizon, mid, smoothstep(0.0, 0.18, h)); c = mix(c, top, smoothstep(0.18, 0.7, h)); gl_FragColor = vec4(c, 1.0); }',
+}));
+scene.add(sky);
+
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x4b5a2a, 0.62));
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const sun = new THREE.DirectionalLight(0xfff1d2, 0.95);
+const SUN_DIR = new THREE.Vector3(0.55, 0.85, 0.35).normalize();
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 400 });
+sun.shadow.bias = -0.0008;
+scene.add(sun, sun.target);
+
+const matCache = {};
+function mat(color) { return matCache[color] || (matCache[color] = new THREE.MeshPhongMaterial({ color, flatShading: true, shininess: 6 })); }
+function mesh(geo, color, parent, x = 0, y = 0, z = 0, shadow = true) {
+  const m = new THREE.Mesh(geo, typeof color === 'number' ? mat(color) : color);
+  m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = shadow; parent.add(m); return m;
+}
+
+/* ---------- collision world ---------- */
+const CELL = 10, circleGrid = new Map(), walls = [], boxes = [];
+function addCircle(x, z, r) {
+  const k = Math.floor(x / CELL) + ',' + Math.floor(z / CELL);
+  if (!circleGrid.has(k)) circleGrid.set(k, []);
+  circleGrid.get(k).push({ x, z, r });
+}
+function collide(p, r) {
+  const cx = Math.floor(p.x / CELL), cz = Math.floor(p.z / CELL);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+    const list = circleGrid.get((cx + i) + ',' + (cz + j)); if (!list) continue;
+    for (const c of list) {
+      const dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz), m = r + c.r;
+      if (d < m && d > 1e-5) { p.x = c.x + dx / d * m; p.z = c.z + dz / d * m; }
+    }
+  }
+  for (const w of walls) {
+    const abx = w.bx - w.ax, abz = w.bz - w.az;
+    const t = clamp(((p.x - w.ax) * abx + (p.z - w.az) * abz) / (abx * abx + abz * abz), 0, 1);
+    const qx = w.ax + abx * t, qz = w.az + abz * t, dx = p.x - qx, dz = p.z - qz, d = Math.hypot(dx, dz), m = r + w.r;
+    if (d < m && d > 1e-5) { p.x = qx + dx / d * m; p.z = qz + dz / d * m; }
+  }
+  for (const b of boxes) {
+    if (p.x > b.x0 - r && p.x < b.x1 + r && p.z > b.z0 - r && p.z < b.z1 + r) {
+      const pen = [p.x - (b.x0 - r), (b.x1 + r) - p.x, p.z - (b.z0 - r), (b.z1 + r) - p.z];
+      const m = Math.min(...pen), i = pen.indexOf(m);
+      if (i === 0) p.x -= m; else if (i === 1) p.x += m; else if (i === 2) p.z -= m; else p.z += m;
+    }
+  }
+}
+
+/* ---------- terrain ---------- */
+const C = (hex) => new THREE.Color(hex);
+const COL = { sand: C(0xd6c58f), wet: C(0x9a8f63), grassA: C(0x4d7a2c), grassB: C(0x355b1f), dry: C(0x8a8a3c), road: C(0x86684a), rock: C(0x6c665b), ash: C(0x3b3431) };
+function groundColor(x, z, h, out) {
+  if (h < 1.3) { out.copy(COL.wet).lerp(COL.sand, smooth(-1.5, 0.8, h)); return out; }
+  const m = 0.5 + 0.5 * Math.sin(x * 0.07 + Math.cos(z * 0.05) * 2) * Math.cos(z * 0.061);
+  out.copy(COL.grassA).lerp(COL.grassB, m);
+  const tz = ZONES.trex, dt = Math.hypot(x - tz.x, z - tz.z);
+  if (dt < tz.r) out.lerp(COL.dry, 0.35 * (1 - dt / tz.r));
+  const gz = ZONES.galli, dg = Math.hypot(x - gz.x, z - gz.z);
+  if (dg < gz.r) out.lerp(COL.dry, 0.4 * (1 - dg / gz.r));
+  out.lerp(COL.sand, 1 - smooth(1.3, 2.2, h));
+  const rd = roadDist(x, z);
+  if (rd < 5) out.lerp(COL.road, 1 - smooth(2.6, 4.6, rd));
+  const s = Math.hypot(heightAt(x + 1, z) - h, heightAt(x, z + 1) - h);
+  out.lerp(COL.rock, smooth(0.55, 1.1, s));
+  const vd = Math.hypot(x - VOLC.x, z - VOLC.z);
+  if (vd < 110) out.lerp(COL.ash, smooth(16, 32, h) * 0.9);
+  return out;
+}
+{
+  const SIZE = 900, SEG = 225;
+  const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position, cols = new Float32Array(pos.count * 3), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = heightAt(x, z);
+    pos.setY(i, h);
+    groundColor(x, z, h, c);
+    const j = (rand() - 0.5) * 0.04;
+    cols[i * 3] = c.r + j; cols[i * 3 + 1] = c.g + j; cols[i * 3 + 2] = c.b + j;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  g.computeVertexNormals();
+  const t = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  t.receiveShadow = true; scene.add(t);
+}
+const water = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshPhongMaterial({ color: 0x2c7586, specular: 0x9cc7c7, shininess: 70, transparent: true, opacity: 0.84 }));
+water.rotation.x = -Math.PI / 2; scene.add(water);
+
+/* ---------- instancing helper ---------- */
+const dummy = new THREE.Object3D();
+function instanced(geo, list, shadow) {
+  const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), list.length);
+  list.forEach((it, i) => {
+    dummy.position.set(it.x, it.y, it.z); dummy.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0); dummy.scale.set(it.sx, it.sy, it.sz);
+    dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); im.setColorAt(i, it.c);
+  });
+  im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  im.castShadow = shadow; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); return im;
+}
+
+/* ---------- vegetation ---------- */
+function vegetationOK(x, z, strict) {
+  const h = heightAt(x, z);
+  if (h < 1.5 || h > 30 || Math.hypot(x, z) > 300) return false;
+  if (roadDist(x, z) < (strict ? 6 : 3.5)) return false;
+  if (Math.abs(z - 180) < 5 && Math.abs(x) < 80) return false;
+  for (const key in ZONES) {
+    const zn = ZONES[key], d = Math.hypot(x - zn.x, z - zn.z);
+    if ((key === 'visitor' || key === 'gate' || key === 'start') && d < zn.r) return false;
+    if ((key === 'trex' || key === 'raptor') && Math.abs(d - zn.r) < 3.5) return false;
+    if (key === 'raptor' && d < zn.r) return !strict && rand() < 0.3;
+    if (key === 'trex' && d < zn.r) return rand() < 0.3;
+    if ((key === 'brachio' || key === 'galli') && d < zn.r * 0.85) return rand() < (strict ? 0.04 : 0.25);
+    if ((key === 'trike' || key === 'stego') && d < zn.r * 0.7) return rand() < 0.3;
+  }
+  return true;
+}
+{
+  const trunks = [], blobs = [], cones = [], bushes = [], rocks = [];
+  const leaf = [0x2f5a22, 0x3d6b28, 0x264d1f, 0x4a7a2e, 0x355f2a];
+  let placed = 0;
+  for (let tries = 0; tries < 9000 && placed < 1150; tries++) {
+    const x = rr(-300, 300), z = rr(-300, 300);
+    if (!vegetationOK(x, z, true)) continue;
+    const y = heightAt(x, z) - 0.3, type = rand();
+    const lc = C(leaf[Math.floor(rand() * leaf.length)]).offsetHSL(0, 0, (rand() - 0.5) * 0.06);
+    const bark = C(0x5a4630).offsetHSL(0, 0, (rand() - 0.5) * 0.08);
+    if (type < 0.5) { // broadleaf jungle tree
+      const th = rr(5, 9), tw = rr(1, 1.6);
+      trunks.push({ x, y, z, sx: tw, sy: th, sz: tw, c: bark, ry: rand() * 6 });
+      const n = 2 + Math.floor(rand() * 2);
+      for (let k = 0; k < n; k++) { const s = rr(2.6, 4.2); blobs.push({ x: x + rr(-1.5, 1.5), y: y + th + rr(-0.5, 1.5), z: z + rr(-1.5, 1.5), sx: s, sy: s * 0.68, sz: s, ry: rand() * 6, c: lc }); }
+      addCircle(x, z, 0.45 * tw);
+    } else if (type < 0.8) { // araucaria
+      const th = rr(10, 16);
+      trunks.push({ x, y, z, sx: 0.9, sy: th, sz: 0.9, c: bark, ry: 0 });
+      cones.push({ x, y: y + th - 3, z, sx: rr(3.5, 4.5), sy: 3, sz: 4, ry: rand() * 6, c: lc });
+      cones.push({ x, y: y + th - 0.5, z, sx: 2.6, sy: 2.6, sz: 2.6, ry: rand() * 6, c: lc });
+      addCircle(x, z, 0.4);
+    } else { // cycad
+      const th = rr(1.6, 3.4);
+      trunks.push({ x, y, z, sx: 1.7, sy: th, sz: 1.7, c: C(0x6b5a3a), ry: 0 });
+      cones.push({ x, y: y + th + 1.4, z, sx: rr(3, 4), sy: -1.6, sz: rr(3, 4), ry: rand() * 6, c: lc.clone().offsetHSL(0.03, 0, 0.04) });
+      addCircle(x, z, 0.6);
+    }
+    placed++;
+  }
+  for (let tries = 0; tries < 6000 && bushes.length < 2200; tries++) {
+    const x = rr(-310, 310), z = rr(-310, 310);
+    if (!vegetationOK(x, z, false)) continue;
+    const s = rr(0.7, 1.8);
+    bushes.push({ x, y: heightAt(x, z) + s * 0.2, z, sx: s * 1.3, sy: s * 0.7, sz: s * 1.3, ry: rand() * 6, c: C(leaf[Math.floor(rand() * leaf.length)]).offsetHSL(0.02, 0, 0.05) });
+  }
+  for (let i = 0; i < 260; i++) {
+    let x = rr(-320, 320), z = rr(-320, 320);
+    if (i < 80) { const a = rand() * 6.28, d = rr(20, 110); x = VOLC.x + Math.cos(a) * d; z = VOLC.z + Math.sin(a) * d; }
+    const h = heightAt(x, z); if (h < -1 || roadDist(x, z) < 4 || Math.hypot(x - ZONES.visitor.x, z - ZONES.visitor.z) < 40) continue;
+    const s = rr(0.5, i < 80 ? 4 : 2.6);
+    rocks.push({ x, y: h + s * 0.15, z, sx: s * rr(0.9, 1.4), sy: s * rr(0.6, 1), sz: s, rx: rand(), ry: rand() * 6, c: C(0x7a7468).offsetHSL(0, 0, (rand() - 0.5) * 0.1) });
+    if (s > 1.2) addCircle(x, z, s * 0.9);
+  }
+  const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 1, 6); trunkGeo.translate(0, 0.5, 0);
+  const coneGeo = new THREE.ConeGeometry(1, 1, 7); coneGeo.translate(0, 0.5, 0);
+  instanced(trunkGeo, trunks, true);
+  instanced(new THREE.IcosahedronGeometry(1, 0), blobs, true);
+  instanced(coneGeo, cones, true);
+  instanced(new THREE.IcosahedronGeometry(1, 0), bushes, false);
+  instanced(new THREE.DodecahedronGeometry(1, 0), rocks, true);
+}
+
+/* ---------- canvas-text signs ---------- */
+function signTexture(lines, bg, fg, w = 512, h = 128) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  g.strokeStyle = fg; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  lines.forEach((l, i) => { g.font = l.font; g.fillText(l.text, w / 2, h * (i + 1) / (lines.length + 1)); });
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; return t;
+}
+function signMesh(tex, w, h) { return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide })); }
+
+/* ---------- main gate + wall ---------- */
+const flames = [];
+{
+  const gz = ZONES.gate.z, gy = ZONES.gate.h, grp = new THREE.Group(); scene.add(grp);
+  for (const s of [-1, 1]) {
+    mesh(new THREE.BoxGeometry(4, 17, 4), 0x4a3a28, grp, s * 12, gy + 8, gz);
+    mesh(new THREE.BoxGeometry(5, 1.2, 5), 0x3a2e20, grp, s * 12, gy + 16.8, gz);
+    addCircle(s * 12, gz, 2.8);
+    const fl = mesh(new THREE.ConeGeometry(0.7, 2.2, 6), new THREE.MeshBasicMaterial({ color: 0xffa23a }), grp, s * 12, gy + 18.5, gz, false);
+    flames.push(fl);
+    const door = new THREE.Group(); door.position.set(s * 10, gy, gz); door.rotation.y = s * -1.15; grp.add(door);
+    mesh(new THREE.BoxGeometry(10, 12, 0.6), 0x5d4a33, door, -s * 5, 6, 0);
+    const wl = 70; // wall each side
+    mesh(new THREE.BoxGeometry(wl, 9, 1.6), 0x4f3f2c, grp, s * (14 + wl / 2), gy + 4.5, gz);
+    walls.push({ ax: s * 14, az: gz, bx: s * (14 + wl), bz: gz, r: 1 });
+    for (let k = 0; k <= 7; k++) mesh(new THREE.BoxGeometry(2, 10.5, 2.2), 0x3d3022, grp, s * (14 + k * 10), gy + 5.2, gz);
+  }
+  mesh(new THREE.BoxGeometry(31, 3.2, 3), 0x3d3022, grp, 0, gy + 15, gz);
+  const tex = signTexture([{ text: 'ISLA NUBLAR', font: '900 64px Impact, sans-serif' }], '#2a2015', '#f0a432');
+  const sg = signMesh(tex, 16, 4); sg.position.set(0, gy + 15, gz + 1.6); grp.add(sg);
+  const sg2 = sg.clone(); sg2.position.z = gz - 1.6; sg2.rotation.y = Math.PI; grp.add(sg2);
+}
+
+/* ---------- visitor center ---------- */
+{
+  const vz = ZONES.visitor, y = vz.h, grp = new THREE.Group(); scene.add(grp);
+  mesh(new THREE.BoxGeometry(36, 1, 24), 0xb9b2a0, grp, 0, y + 0.5, 48);
+  mesh(new THREE.BoxGeometry(34, 12, 20), 0xdcd5c3, grp, 0, y + 6.5, 47);
+  const roof = mesh(new THREE.ConeGeometry(24, 8, 4), 0x5a3826, grp, 0, y + 16.5, 47); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.66);
+  mesh(new THREE.BoxGeometry(26, 6, 0.3), 0x24464a, grp, 0, y + 7, 57.1);
+  mesh(new THREE.BoxGeometry(5, 5, 0.4), 0x1d1a16, grp, 0, y + 3.5, 57.2);
+  for (let i = 0; i < 6; i++) { const x = -15 + i * 6; mesh(new THREE.CylinderGeometry(0.45, 0.45, 12, 8), 0xe9e3d3, grp, x, y + 6.5, 60); addCircle(x, 60, 0.6); }
+  mesh(new THREE.BoxGeometry(34, 0.6, 4), 0x5a3826, grp, 0, y + 12.6, 59.5);
+  const tex = signTexture([{ text: 'VISITOR CENTER', font: '900 58px Impact, sans-serif' }], '#efe7d4', '#2a2015');
+  const sg = signMesh(tex, 14, 3.5); sg.position.set(0, y + 10.6, 57.4); grp.add(sg);
+  boxes.push({ x0: -17.5, x1: 17.5, z0: 36.5, z1: 57.6 });
+  // expedition truck
+  const truck = new THREE.Group(); truck.position.set(14, y, 74); truck.rotation.y = -0.5; grp.add(truck);
+  mesh(new THREE.BoxGeometry(2.3, 1.1, 4.6), 0x8c8858, truck, 0, 1.2, 0);
+  mesh(new THREE.BoxGeometry(2.3, 0.15, 4.62), 0xb3422f, truck, 0, 1.45, 0);
+  mesh(new THREE.BoxGeometry(2.1, 1, 1.6), 0x8c8858, truck, 0, 2.2, -0.4);
+  mesh(new THREE.BoxGeometry(2, 0.7, 0.1), 0x24464a, truck, 0, 2.3, 0.42);
+  const wg = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12); wg.rotateZ(Math.PI / 2);
+  for (const [wx, wz] of [[-1.15, 1.5], [1.15, 1.5], [-1.15, -1.5], [1.15, -1.5]]) mesh(wg, 0x1d1d1b, truck, wx, 0.5, wz);
+  addCircle(14, 74, 2.6);
+}
+
+/* ---------- electric fences ---------- */
+function buildFence(zone, postH, nWires, spacing, gapW, color) {
+  const n = Math.round(Math.PI * 2 * zone.r / spacing);
+  const gapA = Math.atan2(ZONES.visitor.z - zone.z, ZONES.visitor.x - zone.x);
+  const posts = [], wires = [], pts = [];
+  const grey = C(color), wireC = C(0x9ea4a6);
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2;
+    if (Math.abs(angDiff(a, gapA)) < gapW / 2) { pts.push(null); continue; }
+    const x = zone.x + Math.cos(a) * zone.r, z = zone.z + Math.sin(a) * zone.r, y = heightAt(x, z);
+    pts.push({ x, y, z, a });
+    posts.push({ x, y: y + postH / 2 - 0.4, z, sx: 0.5, sy: postH, sz: 0.5, ry: -a, c: grey });
+  }
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n]; if (!p || !q) continue;
+    walls.push({ ax: p.x, az: p.z, bx: q.x, bz: q.z, r: 0.35 });
+    for (let k = 1; k <= nWires; k++) {
+      const y0 = p.y + k * postH / (nWires + 1), y1 = q.y + k * postH / (nWires + 1);
+      dummy.position.set((p.x + q.x) / 2, (y0 + y1) / 2, (p.z + q.z) / 2);
+      const len = Math.hypot(q.x - p.x, y1 - y0, q.z - p.z);
+      wires.push({ from: [p.x, y0, p.z], to: [q.x, y1, q.z], len });
+    }
+  }
+  instanced(new THREE.BoxGeometry(1, 1, 1), posts, true);
+  const wim = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.07, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), wires.length);
+  wires.forEach((w, i) => {
+    dummy.position.set((w.from[0] + w.to[0]) / 2, (w.from[1] + w.to[1]) / 2, (w.from[2] + w.to[2]) / 2);
+    dummy.scale.set(1, 1, 1); dummy.rotation.set(0, 0, 0);
+    dummy.lookAt(w.to[0], w.to[1], w.to[2]); dummy.scale.set(1, 1, w.len); dummy.updateMatrix();
+    wim.setMatrixAt(i, dummy.matrix); wim.setColorAt(i, wireC);
+  });
+  wim.frustumCulled = false; scene.add(wim);
+  // breach: toppled posts and danger signs at each side of the gap
+  const tex = signTexture([{ text: 'DANGER', font: '900 70px Impact, sans-serif' }, { text: '10,000 VOLTS', font: '700 40px Impact, sans-serif' }], '#f0c419', '#1a1a1a', 512, 256);
+  for (const s of [-1, 1]) {
+    const a = gapA + s * (gapW / 2 + 0.01), x = zone.x + Math.cos(a) * zone.r, z = zone.z + Math.sin(a) * zone.r, y = heightAt(x, z);
+    const fallen = mesh(new THREE.BoxGeometry(0.5, postH, 0.5), color, scene, x + Math.cos(gapA) * 1.5 - s * Math.sin(gapA) * 2, y + 0.6, z + Math.sin(gapA) * 1.5 + s * Math.cos(gapA) * 2);
+    fallen.rotation.set(1.35, -gapA + s * 0.5, 0.2);
+    const sign = signMesh(tex, 2.4, 1.2);
+    const ox = Math.cos(a), oz = Math.sin(a);
+    const near = pts.find(p => p && Math.abs(angDiff(p.a, a)) < 0.5);
+    if (near) { sign.position.set(near.x + ox * 0.4, near.y + 2.2, near.z + oz * 0.4); sign.rotation.y = Math.atan2(ox, oz); scene.add(sign); }
+  }
+}
+buildFence(ZONES.trex, 9, 4, 6, 0.42, 0x3b3f41);
+buildFence(ZONES.raptor, 7, 5, 4, 0.34, 0x44403a);
+
+/* ---------- dinosaurs ---------- */
+const SPECIES = {
+  trex:    { name: 'Tyrannosaurus rex', color: 0x5e5a3f, belly: 0x9b9070, accent: 0x3b3829, biped: true, hip: 3.4, bodyL: 5, bodyR: 1.5, neckL: 1.4, neckAng: 0.3, neckR: 0.75, headL: 2.1, headW: 1.05, headH: 1.15, tailL: 6.5, tailR: 1.05, legT: 0.75, armL: 0.9, teeth: true,
+             walk: 2.2, run: 7.6, turn: 1.6, radius: 2.6, predator: true, detect: 42, attack: 4.6, dmg: 40, cooldown: 2.0, logDist: 45, home: 'trex', leash: 50, count: 1 },
+  raptor:  { name: 'Velociraptor antirrhopus', color: 0x8a6a45, belly: 0xc9b48a, accent: 0x3e2f20, biped: true, hip: 1.0, bodyL: 1.5, bodyR: 0.42, neckL: 0.6, neckAng: 0.6, headL: 0.72, headW: 0.3, headH: 0.34, tailL: 2.1, tailR: 0.28, legT: 0.22, armL: 0.5, teeth: true,
+             walk: 2.6, run: 8.8, turn: 4.5, radius: 0.7, predator: true, detect: 26, attack: 1.7, dmg: 12, cooldown: 1.3, logDist: 30, home: 'raptor', leash: 24, count: 3 },
+  brachio: { name: 'Brachiosaurus altithorax', color: 0x6c7a68, belly: 0xa7ad98, accent: 0x4a5649, biped: false, hip: 4.6, hipFront: 6.2, bodyL: 8, bodyR: 2.4, neckL: 10, neckAng: 1.05, neckR: 0.8, headL: 1.6, headW: 0.8, headH: 0.8, tailL: 9, tailR: 1.3, legT: 1.0,
+             walk: 1.3, run: 1.6, turn: 0.5, radius: 4.5, graze: true, logDist: 70, home: 'brachio', leash: 65, count: 3 },
+  trike:   { name: 'Triceratops horridus', color: 0x7a5e44, belly: 0xb19b7c, accent: 0x4e3a2a, biped: false, hip: 1.6, bodyL: 4.2, bodyR: 1.35, neckL: 0.6, neckAng: 0.05, neckR: 0.8, headL: 1.8, headW: 1.1, headH: 1.0, tailL: 2.4, tailR: 0.6, legT: 0.55, frill: true,
+             walk: 1.4, run: 4.5, turn: 1.2, radius: 2.4, graze: true, logDist: 32, home: 'trike', leash: 48, count: 4 },
+  stego:   { name: 'Stegosaurus stenops', color: 0x6e7046, belly: 0xb3ad86, accent: 0xa8562f, biped: false, hip: 2.0, hipFront: 1.25, bodyL: 4.6, bodyR: 1.4, neckL: 1.0, neckAng: -0.25, neckR: 0.45, headL: 0.8, headW: 0.4, headH: 0.45, tailL: 3.6, tailR: 0.6, legT: 0.5, plates: true,
+             walk: 1.2, run: 3.5, turn: 1.0, radius: 2.4, graze: true, logDist: 32, home: 'stego', leash: 48, count: 3 },
+  galli:   { name: 'Gallimimus bullatus', color: 0x8d7a5a, belly: 0xd3c4a0, accent: 0x5c4c35, biped: true, hip: 1.5, bodyL: 1.6, bodyR: 0.45, neckL: 1.3, neckAng: 1.0, neckR: 0.18, headL: 0.45, headW: 0.25, headH: 0.25, tailL: 2.0, tailR: 0.3, legT: 0.2, armL: 0.5,
+             walk: 2.2, run: 11, turn: 3.5, radius: 0.8, flee: true, logDist: 35, home: 'galli', leash: 55, count: 8 },
+};
+const SPECIES_TOTAL = Object.keys(SPECIES).length + 1; // + pteranodon
+
+function buildLeg(c, len, t) {
+  const pivot = new THREE.Group(), up = len * 0.5, lo = len * 0.5;
+  mesh(new THREE.BoxGeometry(t, up + t * 0.3, t * 1.25), c.color, pivot, 0, -up / 2, 0);
+  const knee = new THREE.Group(); knee.position.y = -up; pivot.add(knee);
+  mesh(new THREE.BoxGeometry(t * 0.75, lo, t * 0.85), c.color, knee, 0, -lo / 2, 0);
+  mesh(new THREE.BoxGeometry(t * 1.25, t * 0.35, t * (c.biped ? 2 : 1.3)), c.accent, knee, 0, -lo + t * 0.17, c.biped ? t * 0.5 : 0);
+  return { pivot, knee };
+}
+
+function buildDino(key) {
+  const c = SPECIES[key];
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const hipR = c.hip, hipF = c.hipFront ?? c.hip;
+  const legZr = c.biped ? 0 : -c.bodyL * 0.3, legZf = c.biped ? 0 : c.bodyL * 0.3;
+  const torsoY = (hipR + hipF) / 2 + c.bodyR * 0.3, torsoZ = (legZf + legZr) / 2;
+  const tilt = c.biped ? 0 : Math.atan2(hipF - hipR, legZf - legZr);
+  const torso = new THREE.Group(); torso.position.set(0, torsoY, torsoZ); torso.rotation.x = -tilt; body.add(torso);
+  const sph = new THREE.SphereGeometry(1, 12, 9);
+  mesh(sph, c.belly, torso).scale.set(c.bodyR * 0.95, c.bodyR * 0.85, c.bodyL / 2);
+  mesh(sph, c.color, torso, 0, c.bodyR * 0.18, 0).scale.set(c.bodyR, c.bodyR * 0.82, c.bodyL / 2 * 1.01);
+  const along = (zl, yl) => [torsoY + yl * Math.cos(tilt) + zl * Math.sin(tilt), torsoZ + zl * Math.cos(tilt) - yl * Math.sin(tilt)];
+
+  const legs = [];
+  const addLeg = (x, y, z, len, ph) => { const L = buildLeg(c, len, c.legT); L.pivot.position.set(x, y, z); body.add(L.pivot); legs.push({ ...L, ph }); };
+  if (c.biped) { addLeg(c.bodyR * 0.55, hipR, 0, hipR, 0); addLeg(-c.bodyR * 0.55, hipR, 0, hipR, Math.PI); }
+  else {
+    addLeg(c.bodyR * 0.6, hipF, legZf, hipF, 0); addLeg(-c.bodyR * 0.6, hipF, legZf, hipF, Math.PI);
+    addLeg(c.bodyR * 0.6, hipR, legZr, hipR, Math.PI); addLeg(-c.bodyR * 0.6, hipR, legZr, hipR, 0);
+  }
+
+  if (c.armL) for (const s of [-1, 1]) {
+    const [ay, az] = along(c.bodyL * 0.33, -c.bodyR * 0.35);
+    const arm = new THREE.Group(); arm.position.set(s * c.bodyR * 0.6, ay, az); arm.rotation.x = -0.9; body.add(arm);
+    const ag = new THREE.BoxGeometry(c.legT * 0.4, c.armL, c.legT * 0.4); ag.translate(0, -c.armL / 2, 0);
+    mesh(ag, c.color, arm);
+  }
+
+  // neck + head
+  const [ny, nz] = along(c.bodyL * 0.4, c.bodyR * 0.3);
+  const neck = new THREE.Group(); neck.position.set(0, ny, nz); neck.rotation.x = -c.neckAng; body.add(neck);
+  const nR = c.neckR ?? c.bodyR * 0.42;
+  const ng = new THREE.CylinderGeometry(nR * 0.6, nR, c.neckL + nR, 8); ng.rotateX(Math.PI / 2); ng.translate(0, 0, c.neckL / 2);
+  mesh(ng, c.color, neck);
+  const head = new THREE.Group(); head.position.z = c.neckL; head.rotation.x = c.neckAng * 0.85; neck.add(head);
+  mesh(new THREE.BoxGeometry(c.headW, c.headH * 0.62, c.headL), c.color, head, 0, c.headH * 0.12, c.headL * 0.42);
+  const jaw = new THREE.Group(); jaw.position.set(0, -c.headH * 0.18, 0); head.add(jaw);
+  mesh(new THREE.BoxGeometry(c.headW * 0.8, c.headH * 0.28, c.headL * 0.85), c.belly, jaw, 0, -c.headH * 0.03, c.headL * 0.42);
+  const eg = new THREE.BoxGeometry(c.headH * 0.12, c.headH * 0.12, c.headH * 0.12);
+  for (const s of [-1, 1]) mesh(eg, 0x16110a, head, s * c.headW * 0.5, c.headH * 0.3, c.headL * 0.22, false);
+  if (c.teeth) mesh(new THREE.BoxGeometry(c.headW * 0.84, c.headH * 0.1, c.headL * 0.78), 0xe8e1c8, head, 0, -c.headH * 0.2, c.headL * 0.46, false);
+  if (c.frill) {
+    const fg = new THREE.CylinderGeometry(c.headH * 1.15, c.headH * 1.15, 0.16, 14); fg.rotateX(Math.PI / 2);
+    const fr = mesh(fg, c.accent, head, 0, c.headH * 0.55, -0.1); fr.rotation.x = -0.45;
+    const hg = new THREE.ConeGeometry(0.13, 1.2, 6); hg.rotateX(Math.PI / 2); hg.translate(0, 0, 0.6);
+    for (const s of [-1, 1]) { const h = mesh(hg, 0xe4dcc4, head, s * c.headW * 0.28, c.headH * 0.42, c.headL * 0.3); h.rotation.x = -0.35; }
+    const nh = new THREE.ConeGeometry(0.1, 0.45, 6); nh.translate(0, 0.22, 0);
+    mesh(nh, 0xe4dcc4, head, 0, c.headH * 0.4, c.headL * 0.85).rotation.x = 0.4;
+  }
+
+  // tail chain
+  const tail = []; const [ty, tz] = along(-c.bodyL * 0.42, c.bodyR * 0.1);
+  const n = 6, segL = c.tailL / n; let r0 = c.tailR;
+  let seg = new THREE.Group(); seg.position.set(0, ty, tz); seg.rotation.x = c.biped ? 0.06 : -0.14; body.add(seg);
+  for (let i = 0; i < n; i++) {
+    const r1 = c.tailR * (1 - (i + 1) / n) + 0.03;
+    const g = new THREE.CylinderGeometry(r1, r0, segL * 1.1, 7); g.rotateX(-Math.PI / 2); g.translate(0, 0, -segL / 2);
+    mesh(g, c.color, seg); tail.push(seg); r0 = r1;
+    if (i === n - 1 && c.plates) {
+      const sg = new THREE.ConeGeometry(0.07, 0.9, 5); sg.translate(0, 0.45, 0);
+      for (const s of [-1, 1]) for (const zz of [-0.2, -0.6]) { const sp = mesh(sg, 0xd9cfb3, seg, 0, 0.1, zz * segL); sp.rotation.z = s * 1.0; }
+    }
+    if (i < n - 1) { const nx = new THREE.Group(); nx.position.z = -segL; nx.rotation.x = c.biped ? 0 : -0.03; seg.add(nx); seg = nx; }
+  }
+  if (c.plates) {
+    const pg = new THREE.ConeGeometry(0.5, 1, 4); pg.rotateY(Math.PI / 4); pg.translate(0, 0.5, 0);
+    for (let i = 0; i < 10; i++) {
+      const f = i / 9, zl = lerp(-c.bodyL * 0.46, c.bodyL * 0.36, f), e = Math.sqrt(Math.max(0, 1 - Math.pow(zl / (c.bodyL / 2), 2)));
+      const size = 0.35 + c.bodyR * 0.75 * Math.sin(Math.PI * (f * 0.8 + 0.12));
+      const [py, pz] = along(zl, c.bodyR * 0.82 * e + c.bodyR * 0.08);
+      const p = mesh(pg, c.accent, body, (i % 2 ? 0.12 : -0.12), py - 0.15, pz); p.scale.set(0.22 * size, size * 1.3, size);
+    }
+  }
+  root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  scene.add(root);
+  return { root, body, legs, tail, neck, head, jaw };
+}
+
+const dinos = [];
+for (const key in SPECIES) {
+  const c = SPECIES[key], home = ZONES[c.home];
+  for (let i = 0; i < c.count; i++) {
+    const parts = buildDino(key);
+    const a = rand() * 6.28, d = rand() * c.leash * 0.6;
+    const d0 = { key, c, ...parts, home, x: home.x + Math.cos(a) * d, z: home.z + Math.sin(a) * d, heading: rand() * 6.28, speed: 0, tx: 0, tz: 0, timer: 0, state: 'wander', phase: rand() * 6, cool: 0, graze: 0, roarT: 0, lastStep: 1, jawOpen: 0 };
+    d0.spawn = { x: d0.x, z: d0.z };
+    pickTarget(d0); dinos.push(d0);
+  }
+}
+function pickTarget(d) {
+  for (let k = 0; k < 8; k++) {
+    const a = rand() * 6.28, r = Math.sqrt(rand()) * d.c.leash;
+    const x = d.home.x + Math.cos(a) * r, z = d.home.z + Math.sin(a) * r;
+    if (heightAt(x, z) > 0.6) { d.tx = x; d.tz = z; break; }
+  }
+  d.idle = rand() < 0.35 ? rr(2, 6) : 0;
+  d.timer = rr(8, 18);
+}
+
+/* pteranodons circling the volcano */
+const pteros = [];
+for (let i = 0; i < 4; i++) {
+  const g = new THREE.Group();
+  const bg = new THREE.ConeGeometry(0.35, 2.4, 6); bg.rotateX(Math.PI / 2);
+  mesh(bg, 0x6b4f3a, g);
+  const beak = new THREE.ConeGeometry(0.12, 1.6, 5); beak.rotateX(Math.PI / 2); mesh(beak, 0xc9a36a, g, 0, 0.1, 1.9);
+  const crest = new THREE.ConeGeometry(0.1, 1.2, 4); crest.rotateX(-Math.PI / 2); mesh(crest, 0xa8562f, g, 0, 0.3, 0.2).rotation.x = 0.3;
+  const wings = [];
+  for (const s of [-1, 1]) {
+    const w = new THREE.Group(); g.add(w);
+    const wg = new THREE.BoxGeometry(3.6, 0.07, 1.3); wg.translate(s * 1.8, 0, -0.1);
+    mesh(wg, 0x7d5c43, w); wings.push({ w, s });
+  }
+  scene.add(g);
+  pteros.push({ g, wings, r: rr(40, 80), h: rr(62, 85), sp: rr(0.12, 0.2) * (i % 2 ? 1 : -1), a: rand() * 6.28, flap: rand() * 6 });
+}
+
+/* ---------- amber ---------- */
+function onLand(x, z) { let k = 0; while (heightAt(x, z) < 1.2 && k++ < 40) { x *= 0.96; z *= 0.96; } return [x, z]; }
+const AMBER_SPOTS = [[14, 132], [-115, -35], [140, -60], [-160, -168], [118, 108], [55, -182], [-210, 55], [-48, -160], [205, -20], [-150, 140]];
+const amberGeo = new THREE.OctahedronGeometry(0.5, 0);
+const amberMat = new THREE.MeshPhongMaterial({ color: 0xf0a432, emissive: 0x8a4a06, specular: 0xffffff, shininess: 90, transparent: true, opacity: 0.9 });
+const beamMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.16, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+const beamGeo = new THREE.CylinderGeometry(0.35, 0.35, 60, 8, 1, true);
+const ambers = AMBER_SPOTS.map(([ax, az], i) => {
+  const [x, z] = onLand(ax, az), y = heightAt(x, z) + 1.3;
+  const g = new THREE.Group(); g.position.set(x, y, z);
+  const gem = mesh(amberGeo, amberMat, g, 0, 0, 0, false); gem.scale.set(0.8, 1.2, 0.8);
+  mesh(new THREE.BoxGeometry(0.14, 0.06, 0.3), 0x2a1a0a, g, 0, 0, 0, false);
+  mesh(beamGeo, beamMat, g, 0, 30, 0, false);
+  scene.add(g);
+  return { i, x, y, z, g, gem, got: false };
+});
+
+/* ---------- audio ---------- */
+let ac = null, master = null, noiseBuf = null, muted = false;
+function initAudio() {
+  if (ac) { ac.resume(); return; }
+  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  master = ac.createGain(); master.gain.value = muted ? 0 : 0.8; master.connect(ac.destination);
+  noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const wind = ac.createBufferSource(); wind.buffer = noiseBuf; wind.loop = true;
+  const wf = ac.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 420;
+  const wg = ac.createGain(); wg.gain.value = 0.05; wind.connect(wf); wf.connect(wg); wg.connect(master); wind.start();
+  setInterval(() => { if (state === 'play' && Math.random() < 0.55) bird(); }, 2600);
+}
+function env(g, t, peak, a, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+function roar(kind, vol) {
+  if (!ac || vol < 0.02) return;
+  const t = ac.currentTime, big = kind === 'trex', dur = big ? 2.4 : 0.9;
+  const src = ac.createBufferSource(); src.buffer = noiseBuf;
+  const f = ac.createBiquadFilter(); f.type = big ? 'lowpass' : 'bandpass'; f.Q.value = big ? 4 : 6;
+  f.frequency.setValueAtTime(big ? 900 : 2600, t); f.frequency.exponentialRampToValueAtTime(big ? 160 : 1100, t + dur);
+  const o = ac.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(big ? 110 : 700, t); o.frequency.exponentialRampToValueAtTime(big ? 42 : 380, t + dur);
+  const og = ac.createGain(); og.gain.value = big ? 0.5 : 0.25; o.connect(og); og.connect(f);
+  const g = ac.createGain(); env(g, t, vol * (big ? 0.9 : 0.5), 0.12, dur);
+  src.connect(f); f.connect(g); g.connect(master); src.start(t); o.start(t); src.stop(t + dur + 0.1); o.stop(t + dur + 0.1);
+}
+function thud(vol) {
+  if (!ac || vol < 0.02) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(28, t + 0.45);
+  env(g, t, vol * 0.9, 0.01, 0.5); o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.55);
+}
+function step(vol) {
+  if (!ac) return;
+  const t = ac.currentTime, s = ac.createBufferSource(); s.buffer = noiseBuf;
+  const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 600 + Math.random() * 400; f.Q.value = 0.8;
+  const g = ac.createGain(); env(g, t, vol, 0.005, 0.11);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 0.13);
+}
+function tone(freq, t0, dur, vol, type = 'sine') {
+  const t = ac.currentTime + t0, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); env(g, t, vol, 0.01, dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05); return o;
+}
+function chime() { if (!ac) return; tone(880, 0, 0.5, 0.18); tone(1320, 0.09, 0.6, 0.14); tone(1760, 0.18, 0.8, 0.1); }
+function logSound() { if (!ac) return; tone(523, 0, 0.25, 0.12, 'triangle'); tone(784, 0.1, 0.35, 0.12, 'triangle'); }
+function hurtSound() { if (!ac) return; const o = tone(180, 0, 0.3, 0.3, 'square'); o.frequency.exponentialRampToValueAtTime(60, ac.currentTime + 0.3); }
+function bird() {
+  const t = ac.currentTime, f0 = 2200 + Math.random() * 1800;
+  for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) {
+    const o = ac.createOscillator(), g = ac.createGain(), s = t + k * 0.14;
+    o.frequency.setValueAtTime(f0, s); o.frequency.exponentialRampToValueAtTime(f0 * 1.4, s + 0.08);
+    env(g, s, 0.03, 0.01, 0.1); o.connect(g); g.connect(master); o.start(s); o.stop(s + 0.12);
+  }
+}
+function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; $('#muteBtn').textContent = m ? 'Sound off' : 'Sound on'; }
+
+/* ---------- player + input ---------- */
+const EYE = 1.7;
+const player = { x: 0, z: 268, y: 0, vy: 0, yaw: 0, pitch: 0.02, health: 100, stamina: 100, onGround: true, hurtT: 99, bob: 0, stepT: 0 };
+let state = 'menu', shake = 0, elapsed = 0, lockActive = false, dragLook = false, dragging = false, wonShown = false;
+const logged = new Set();
+const keys = {};
+const joy = { x: 0, y: 0, id: null }, look = { id: null, x: 0, y: 0 };
+let touchSprint = false, touchJump = false;
+const isTouch = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+if (isTouch) { $('#keysDesktop').hidden = true; $('#keysTouch').hidden = false; }
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyM') setMuted(!muted);
+  if (e.code === 'Space' && state === 'play') e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+function turn(dx, dy, k) { player.yaw -= dx * k; player.pitch = clamp(player.pitch - dy * k, -1.45, 1.45); }
+document.addEventListener('mousemove', e => {
+  if (state !== 'play') return;
+  if (lockActive || dragging) turn(e.movementX || 0, e.movementY || 0, 0.0022);
+});
+canvas.addEventListener('mousedown', () => {
+  if (state !== 'play' || isTouch) return;
+  if (!lockActive && !dragLook) requestLock(); else dragging = true;
+});
+addEventListener('mouseup', () => { dragging = false; });
+function requestLock() {
+  try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { dragLook = true; }); } catch (e) { dragLook = true; }
+}
+document.addEventListener('pointerlockchange', () => {
+  lockActive = document.pointerLockElement === canvas;
+  if (!lockActive && state === 'play' && !isTouch && !dragLook) pause('Expedition paused', 'Take a breath', 'Your progress is kept. Click resume to keep exploring.');
+});
+document.addEventListener('pointerlockerror', () => { dragLook = true; toast('Drag with the mouse to look around.'); });
+
+// touch: joystick on the left, drag anywhere else to look
+const joyEl = $('#joy'), knob = $('#knob');
+joyEl.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; joy.id = t.identifier; moveJoy(t); }, { passive: false });
+function moveJoy(t) {
+  const r = joyEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let dx = (t.clientX - cx) / 50, dy = (t.clientY - cy) / 50; const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
+  joy.x = dx; joy.y = -dy; knob.style.transform = `translate(${dx * 35}px, ${dy * 35}px)`;
+}
+addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joy.id) moveJoy(t);
+    else if (t.identifier === look.id) { turn(t.clientX - look.x, t.clientY - look.y, 0.0048); look.x = t.clientX; look.y = t.clientY; }
+  }
+  if (state === 'play') e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchstart', e => { const t = e.changedTouches[0]; if (look.id === null) { look.id = t.identifier; look.x = t.clientX; look.y = t.clientY; } }, { passive: true });
+function endTouch(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; }
+    if (t.identifier === look.id) look.id = null;
+  }
+}
+addEventListener('touchend', endTouch); addEventListener('touchcancel', endTouch);
+$('#tSprint').addEventListener('touchstart', e => { e.preventDefault(); touchSprint = !touchSprint; e.currentTarget.classList.toggle('on', touchSprint); }, { passive: false });
+$('#tJump').addEventListener('touchstart', e => { e.preventDefault(); touchJump = true; }, { passive: false });
+
+/* ---------- HUD ---------- */
+const hud = { amber: $('#amberCount'), species: $('#speciesCount'), health: $('#healthBar > i'), stamina: $('#staminaBar > i'), heading: $('#heading'), area: $('#area'), grid: $('#grid'), hurt: $('#hurt'), toast: $('#toast') };
+let toastTimer = 0;
+function toast(msg, danger = false, secs = 3.2) { hud.toast.textContent = msg; hud.toast.classList.add('show'); hud.toast.classList.toggle('danger', danger); toastTimer = secs; }
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function areaName(x, z) {
+  let best = null, bd = 1e9;
+  for (const zn of zoneList) { const d = Math.hypot(x - zn.x, z - zn.z); if (d < zn.r * 1.1 && d / zn.r < bd) { bd = d / zn.r; best = zn.name; } }
+  if (best) return best;
+  if (Math.hypot(x - VOLC.x, z - VOLC.z) < 110) return 'Volcano Slopes';
+  return heightAt(x, z) < 2 ? 'Shoreline' : 'Jungle';
+}
+const pad3 = n => (n < 0 ? '-' : '+') + String(Math.abs(Math.round(n))).padStart(3, '0');
+function updateCounts() {
+  hud.amber.textContent = `${ambers.filter(a => a.got).length}/${ambers.length}`;
+  hud.species.textContent = `${logged.size}/${SPECIES_TOTAL}`;
+}
+
+/* motion tracker: north-up map that rotates with the player */
+const mapCv = document.createElement('canvas'); mapCv.width = mapCv.height = 256;
+{
+  const g = mapCv.getContext('2d'), img = g.createImageData(256, 256), c = new THREE.Color();
+  for (let j = 0; j < 256; j++) for (let i = 0; i < 256; i++) {
+    const x = -450 + (i + 0.5) / 256 * 900, z = -450 + (j + 0.5) / 256 * 900, h = heightAt(x, z), k = (j * 256 + i) * 4;
+    if (h < 0) c.set(0x1f5866).lerp(C(0x123843), smooth(0, -6, h)); else groundColor(x, z, h, c);
+    img.data[k] = c.r * 255; img.data[k + 1] = c.g * 255; img.data[k + 2] = c.b * 255; img.data[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+const tracker = $('#tracker'), tg = tracker.getContext('2d');
+function drawTracker(t) {
+  const W = tracker.width, R = W / 2, s = R / 120;
+  tg.save(); tg.clearRect(0, 0, W, W);
+  tg.beginPath(); tg.arc(R, R, R, 0, Math.PI * 2); tg.clip();
+  tg.translate(R, R); tg.rotate(player.yaw); tg.scale(s, s); tg.translate(-player.x, -player.z);
+  tg.globalAlpha = 0.85; tg.drawImage(mapCv, -450, -450, 900, 900); tg.globalAlpha = 1;
+  for (const key of ['trex', 'raptor']) { const z = ZONES[key]; tg.strokeStyle = 'rgba(224,74,47,0.6)'; tg.lineWidth = 1.5 / s; tg.beginPath(); tg.arc(z.x, z.z, z.r, 0, Math.PI * 2); tg.stroke(); }
+  for (const a of ambers) if (!a.got) { tg.fillStyle = '#f0a432'; tg.beginPath(); tg.arc(a.x, a.z, 4.5 / s, 0, Math.PI * 2); tg.fill(); }
+  const pulse = 0.6 + 0.4 * Math.sin(t * 6);
+  for (const d of dinos) {
+    const dist = Math.hypot(d.x - player.x, d.z - player.z); if (dist > 125 || d.speed < 0.2) continue;
+    tg.fillStyle = d.c.predator ? `rgba(224,74,47,${pulse})` : 'rgba(170,220,140,0.9)';
+    tg.beginPath(); tg.arc(d.x, d.z, (d.c.predator ? 6 : 4.5) / s, 0, Math.PI * 2); tg.fill();
+  }
+  tg.restore();
+  tg.strokeStyle = 'rgba(239,231,212,0.25)'; tg.lineWidth = 1;
+  for (const rr2 of [R * 0.33, R * 0.66]) { tg.beginPath(); tg.arc(R, R, rr2, 0, Math.PI * 2); tg.stroke(); }
+  tg.fillStyle = '#efe7d4'; tg.beginPath(); tg.moveTo(R, R - 11); tg.lineTo(R + 7, R + 8); tg.lineTo(R, R + 4); tg.lineTo(R - 7, R + 8); tg.closePath(); tg.fill();
+}
+
+/* ---------- game flow ---------- */
+function show(el, on) { el.hidden = !on; }
+function pause(eyebrow, title, text, canRestart = false) {
+  state = 'paused';
+  $('#pauseScreen .eyebrow').textContent = eyebrow; $('#pauseTitle').textContent = title; $('#pauseText').textContent = text;
+  $('#resumeBtn').hidden = canRestart; $('#restartBtn').hidden = !canRestart;
+  show($('#pauseScreen'), true);
+}
+function play() {
+  initAudio();
+  show($('#startScreen'), false); show($('#pauseScreen'), false);
+  show($('#touch'), isTouch);
+  state = 'play';
+  if (!isTouch && !dragLook) requestLock();
+}
+function respawn() {
+  Object.assign(player, { x: 0, z: 268, vy: 0, yaw: 0, pitch: 0.02, health: 100, stamina: 100, hurtT: 99 });
+  player.y = heightAt(player.x, player.z);
+  for (const d of dinos) { d.x = d.spawn.x; d.z = d.spawn.z; d.state = 'wander'; pickTarget(d); }
+  play();
+}
+$('#startBtn').addEventListener('click', play);
+$('#resumeBtn').addEventListener('click', play);
+$('#restartBtn').addEventListener('click', respawn);
+$('#muteBtn').addEventListener('click', () => setMuted(!muted));
+
+function damage(amount, who) {
+  if (state !== 'play') return;
+  player.health -= amount; player.hurtT = 0; shake = Math.max(shake, 0.5);
+  hurtSound();
+  if (player.health <= 0) {
+    player.health = 0;
+    if (document.pointerLockElement) document.exitPointerLock();
+    pause('Expedition over', who === 'trex' ? 'The T-Rex got you' : 'The raptors got you', 'Your amber and species log are kept. You will wake up on the landing beach.', true);
+  }
+}
+
+/* ---------- per-frame updates ---------- */
+function updatePlayer(dt) {
+  let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  let mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+  const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
+  const moving = l > 0.1;
+  const wantSprint = (keys.ShiftLeft || keys.ShiftRight || touchSprint) && moving && mz > 0;
+  const sprint = wantSprint && player.stamina > 1;
+  player.stamina = clamp(player.stamina + (sprint ? -22 : 14) * dt, 0, 100);
+  const ground0 = heightAt(player.x, player.z);
+  let speed = sprint ? 9.5 : 5.2; if (ground0 < 0.1) speed *= 0.6;
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+  const vx = (fx * mz + rx * mx) * speed, vz = (fz * mz + rz * mx) * speed;
+  if (heightAt(player.x + vx * dt, player.z) > -1.1) player.x += vx * dt;
+  if (heightAt(player.x, player.z + vz * dt) > -1.1) player.z += vz * dt;
+  collide(player, 0.45);
+  for (const d of dinos) {
+    const dx = player.x - d.x, dz = player.z - d.z, dd = Math.hypot(dx, dz), m = d.c.radius + 0.45;
+    if (dd < m && dd > 1e-4) { player.x = d.x + dx / dd * m; player.z = d.z + dz / dd * m; }
+  }
+  const rad = Math.hypot(player.x, player.z); if (rad > 330) { player.x *= 330 / rad; player.z *= 330 / rad; }
+  const ground = heightAt(player.x, player.z);
+  if ((keys.Space || touchJump) && player.onGround) { player.vy = 7.5; player.onGround = false; }
+  touchJump = false;
+  player.vy -= 22 * dt; player.y += player.vy * dt;
+  if (player.y <= ground) { if (!player.onGround && player.vy < -6) step(0.25); player.y = ground; player.vy = 0; player.onGround = true; }
+  else if (player.y > ground + 0.05) player.onGround = false;
+  if (moving && player.onGround) {
+    player.bob += dt * (sprint ? 13 : 9);
+    player.stepT -= dt; if (player.stepT <= 0) { step(sprint ? 0.12 : 0.07); player.stepT = sprint ? 0.32 : 0.5; }
+  }
+  player.hurtT += dt;
+  if (player.hurtT > 5) player.health = Math.min(100, player.health + 4 * dt);
+}
+
+function updateDino(d, dt, t) {
+  const c = d.c, px = player.x - d.x, pz = player.z - d.z, distP = Math.hypot(px, pz);
+  const playerFromHome = Math.hypot(player.x - d.home.x, player.z - d.home.z);
+  let speed = c.walk, targetSpeed;
+  d.cool -= dt; d.timer -= dt; d.roarT -= dt;
+  const alive = state === 'play';
+
+  if (c.predator) {
+    const canSee = alive && distP < c.detect && playerFromHome < c.leash + c.detect * 0.7;
+    if (d.state !== 'chase' && canSee) {
+      d.state = 'chase';
+      if (d.roarT <= 0) { roar(d.key, clamp(1 - distP / 160, 0, 1)); d.roarT = 7; d.jawOpen = 1.4; shake = Math.max(shake, d.key === 'trex' ? 0.6 : 0.15); }
+      toast(d.key === 'trex' ? 'The T-Rex has seen you. Run!' : 'Raptors are hunting you!', true);
+    } else if (d.state === 'chase' && (!alive || distP > c.detect * 1.6 || playerFromHome > c.leash + c.detect)) { d.state = 'wander'; pickTarget(d); }
+  } else if (c.flee) {
+    if (alive && distP < 20) { d.state = 'flee'; d.fleeT = 3; }
+    else if (d.state === 'flee' && (d.fleeT -= dt) <= 0) { d.state = 'wander'; pickTarget(d); }
+  }
+
+  if (d.state === 'chase') {
+    let tx = player.x, tz = player.z;
+    const hx = tx - d.home.x, hz = tz - d.home.z, hd = Math.hypot(hx, hz);
+    if (hd > c.leash) { tx = d.home.x + hx / hd * c.leash; tz = d.home.z + hz / hd * c.leash; }
+    d.tx = tx; d.tz = tz; targetSpeed = c.run;
+    if (distP < c.attack + 0.6 && d.cool <= 0 && alive) { d.cool = c.cooldown; d.jawOpen = 1; damage(c.dmg, d.key); }
+    if (hd > c.leash && distP < c.detect && d.roarT <= 0 && Math.hypot(d.x - tx, d.z - tz) < 3) { roar(d.key, clamp(1 - distP / 160, 0, 1)); d.roarT = 6; d.jawOpen = 1.4; }
+  } else if (d.state === 'flee') {
+    const k = 25 / Math.max(distP, 0.1);
+    let tx = d.x - px * k, tz = d.z - pz * k;
+    const hx = tx - d.home.x, hz = tz - d.home.z, hd = Math.hypot(hx, hz);
+    if (hd > c.leash) { tx = d.home.x + hx / hd * c.leash; tz = d.home.z + hz / hd * c.leash; }
+    d.tx = tx; d.tz = tz; targetSpeed = c.run;
+  } else {
+    const dist = Math.hypot(d.tx - d.x, d.tz - d.z);
+    targetSpeed = c.walk;
+    if (dist < 2 && d.idle > 0) { d.idle -= dt; targetSpeed = 0; if (d.idle <= 0) pickTarget(d); }
+    else if (dist < 2 || d.timer <= 0) pickTarget(d);
+  }
+  d.speed = lerp(d.speed, targetSpeed, 1 - Math.exp(-dt * 2.5));
+  speed = d.speed;
+
+  const desired = Math.atan2(d.tx - d.x, d.tz - d.z), diff = angDiff(d.heading, desired);
+  d.heading += clamp(diff, -c.turn * dt, c.turn * dt);
+  if (speed > 0.05 && Math.hypot(d.tx - d.x, d.tz - d.z) > 0.8) {
+    const nx = d.x + Math.sin(d.heading) * speed * dt, nz = d.z + Math.cos(d.heading) * speed * dt;
+    if (heightAt(nx, nz) > 0.4) { d.x = nx; d.z = nz; } else if (d.state === 'wander') pickTarget(d);
+  }
+  const y = heightAt(d.x, d.z);
+  d.root.position.set(d.x, y, d.z); d.root.rotation.y = d.heading;
+
+  // gait
+  const rel = clamp(speed / c.walk, 0, 2.2), amp = Math.min(0.55, 0.32 * rel);
+  const stride = 6.2 / (c.hip + 1.2);
+  d.phase += dt * speed * stride;
+  for (const L of d.legs) {
+    const s = Math.sin(d.phase + L.ph);
+    L.pivot.rotation.x = s * amp;
+    L.knee.rotation.x = Math.max(0, Math.cos(d.phase + L.ph)) * amp * (c.biped ? 1.1 : 0.6);
+  }
+  d.body.position.y = Math.abs(Math.sin(d.phase)) * 0.04 * c.hip * rel;
+  for (let i = 0; i < d.tail.length; i++) d.tail[i].rotation.y = Math.sin(t * (1.2 + rel) + i * 0.7 + d.phase * 0.2) * (0.05 + 0.04 * rel) - diff * 0.05;
+  // grazing lowers the neck while idle
+  const grazing = c.graze && speed < 0.15 ? 1 : 0;
+  d.graze = lerp(d.graze, grazing, 1 - Math.exp(-dt * 1.5));
+  const nAng = c.neckAng - d.graze * (d.key === 'brachio' ? c.neckAng * 0.6 : c.neckAng + 0.35);
+  d.neck.rotation.x = -nAng + Math.sin(t * 0.8 + d.phase) * 0.03;
+  d.head.rotation.x = nAng * 0.85 + d.graze * 0.3;
+  d.jawOpen = Math.max(0, d.jawOpen - dt * 1.4);
+  d.jaw.rotation.x = Math.min(1, d.jawOpen) * 0.55;
+  // heavy footsteps
+  if (d.key === 'trex' || d.key === 'brachio') {
+    const sgn = Math.sign(Math.sin(d.phase));
+    if (sgn !== d.lastStep && speed > 0.4) {
+      const v = clamp(1 - distP / 90, 0, 1) * (d.key === 'trex' ? 1 : 0.7);
+      thud(v); shake = Math.max(shake, v * v * 0.35);
+    }
+    d.lastStep = sgn;
+  }
+  // species log
+  if (alive && !logged.has(d.key) && distP < c.logDist) {
+    logged.add(d.key); logSound(); updateCounts();
+    if (state === 'play' && !(c.predator && d.state === 'chase')) toast(`Species logged: ${c.name} (${logged.size}/${SPECIES_TOTAL})`);
+  }
+}
+
+function updatePteros(dt, t) {
+  for (const p of pteros) {
+    p.a += p.sp * dt; p.flap += dt * 3;
+    const x = VOLC.x + Math.cos(p.a) * p.r, z = VOLC.z + Math.sin(p.a) * p.r;
+    p.g.position.set(x, p.h + Math.sin(t * 0.5 + p.r) * 4, z);
+    p.g.rotation.y = Math.atan2(-Math.sin(p.a) * Math.sign(p.sp), Math.cos(p.a) * Math.sign(p.sp));
+    p.g.rotation.z = -Math.sign(p.sp) * 0.25;
+    for (const w of p.wings) w.w.rotation.z = w.s * Math.sin(p.flap) * 0.35;
+    if (state === 'play' && !logged.has('ptero') && Math.hypot(x - player.x, z - player.z) < 110) {
+      logged.add('ptero'); logSound(); updateCounts(); toast(`Species logged: Pteranodon longiceps (${logged.size}/${SPECIES_TOTAL})`);
+    }
+  }
+}
+
+function updateAmber(dt, t) {
+  for (const a of ambers) {
+    if (a.got) continue;
+    a.gem.rotation.y = t * 1.5; a.gem.position.y = Math.sin(t * 2 + a.i) * 0.15;
+    if (state === 'play' && Math.hypot(a.x - player.x, a.z - player.z) < 1.8 && Math.abs(a.y - (player.y + 1)) < 2.2) {
+      a.got = true; a.g.visible = false; chime(); updateCounts();
+      const n = ambers.filter(b => b.got).length;
+      toast(n === ambers.length ? 'All 10 pieces of amber recovered!' : `Amber recovered: ${n} of ${ambers.length}. A mosquito is trapped inside.`);
+    }
+  }
+}
+
+/* ---------- main loop ---------- */
+const clock = new THREE.Clock();
+let t = 0;
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05); t += dt;
+  if (state === 'play') { updatePlayer(dt); elapsed += dt; }
+  else if (state === 'menu') player.yaw = Math.sin(t * 0.12) * 0.5;
+  for (const d of dinos) updateDino(d, dt, t);
+  updatePteros(dt, t); updateAmber(dt, t);
+  for (const f of flames) { f.scale.set(1, 0.8 + Math.sin(t * 11 + f.position.x) * 0.2, 1); }
+  water.position.y = Math.sin(t * 0.6) * 0.06;
+
+  if (!player.y) player.y = heightAt(player.x, player.z);
+  shake = Math.max(0, shake - dt * 1.2);
+  const bobY = Math.sin(player.bob) * 0.05, bobX = Math.cos(player.bob * 0.5) * 0.03;
+  camera.position.set(player.x + (Math.random() - 0.5) * shake * 0.4, Math.max(player.y, -0.4) + EYE + bobY + (Math.random() - 0.5) * shake * 0.4, player.z);
+  camera.rotation.set(player.pitch, player.yaw, bobX * 0.2);
+  sky.position.copy(camera.position);
+  sun.position.set(player.x + SUN_DIR.x * 150, player.y + SUN_DIR.y * 150, player.z + SUN_DIR.z * 150);
+  sun.target.position.set(player.x, player.y, player.z);
+
+  // HUD
+  hud.health.style.width = player.health + '%';
+  hud.stamina.style.width = player.stamina + '%';
+  hud.hurt.style.opacity = player.hurtT < 0.6 ? String(1 - player.hurtT / 0.6) : String(player.health < 35 ? 0.35 : 0);
+  const deg = ((-player.yaw * 180 / Math.PI) % 360 + 360) % 360;
+  hud.heading.textContent = `${DIRS[Math.round(deg / 45) % 8]} ${String(Math.round(deg) % 360).padStart(3, '0')}°`;
+  hud.area.textContent = areaName(player.x, player.z);
+  hud.grid.textContent = `GRID X ${pad3(player.x)} Z ${pad3(-player.z)} · ELEV ${Math.max(0, player.y).toFixed(0)} m`;
+  if (toastTimer > 0 && (toastTimer -= dt) <= 0) hud.toast.classList.remove('show');
+  drawTracker(t);
+
+  if (state === 'play' && !wonShown && logged.size === SPECIES_TOTAL && ambers.every(a => a.got)) {
+    wonShown = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    const m = Math.floor(elapsed / 60), s = Math.floor(elapsed % 60);
+    pause('Expedition complete', 'Isla Nublar surveyed', `You recovered all 10 pieces of amber and logged all 7 species in ${m}m ${String(s).padStart(2, '0')}s. Keep exploring as long as you like.`);
+  }
+  renderer.render(scene, camera);
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- boot (keeps progress across live updates) ---------- */
+function snapshot() {
+  return { x: player.x, z: player.z, yaw: player.yaw, health: player.health, amber: ambers.filter(a => a.got).map(a => a.i), species: [...logged], elapsed };
+}
+window.claude?.hot?.snapshot?.(snapshot);
+function start(data) {
+  if (data && typeof data.x === 'number') {
+    Object.assign(player, { x: data.x, z: data.z, yaw: data.yaw || 0, health: data.health || 100 });
+    for (const i of data.amber || []) if (ambers[i]) { ambers[i].got = true; ambers[i].g.visible = false; }
+    for (const s of data.species || []) logged.add(s);
+    elapsed = data.elapsed || 0;
+  }
+  player.y = heightAt(player.x, player.z);
+  updateCounts();
+  const b = $('#startBtn'); b.disabled = false; b.textContent = 'Enter the park'; b.focus();
+  frame();
+}
+if (location.protocol === 'file:') window.__tp = (x, z, lx, lz) => { player.x = x; player.z = z; player.y = heightAt(x, z); player.yaw = Math.atan2(-(lx - x), -(lz - z)); player.pitch = 0.05; };
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>

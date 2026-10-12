@@ -10,11 +10,13 @@ A first-person 3D dinosaur park you can walk around in, built with Three.js in a
 - Goal: recover 10 pieces of amber and log all 7 species (T-Rex, Velociraptor, Brachiosaurus, Triceratops, Stegosaurus, Gallimimus, Pteranodon).
 - Predators chase you inside their territory; sprint to escape.
 
+Easy controls (made for young kids):
+
 | Control | Desktop | Touch |
 |---|---|---|
-| Walk | W A S D / ↑ ↓ | Left stick |
-| Turn | ← → or mouse | Drag |
-| Look | Mouse | Drag |
-| Sprint | Shift | RUN |
+| Run (default speed) | ↑ (or W) | Left stick |
+| Turn | ← → or mouse drag | Drag |
+| Jump to next dinosaur | Enter / N, or number keys 1–7 | GO TO button |
+| Super speed | Shift | — |
 | Jump | Space | JUMP |
 | Sound | M | Sound button |

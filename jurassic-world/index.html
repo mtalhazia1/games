@@ -38,7 +38,6 @@ canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: bl
 .bar { height: 6px; background: rgba(239, 231, 212, 0.12); border-radius: 3px; overflow: hidden; }
 .bar > i { display: block; height: 100%; width: 100%; background: var(--moss); transition: width 0.15s linear; }
 #healthBar > i { background: var(--alarm); }
-#staminaBar > i { background: var(--amber); }
 
 #compass { top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); padding: 7px 14px; text-align: center; }
 #heading { font: 900 20px/1 var(--display); letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
@@ -78,18 +77,21 @@ kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--li
 .tbtn { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--line); background: var(--glass); color: var(--bone); font: 900 15px/1 var(--display); letter-spacing: 0.06em; pointer-events: auto; touch-action: none; }
 .tbtn.on { background: var(--amber); color: #1d1205; }
 #tJump { right: 180px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
-#tSprint { right: 180px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
 #muteBtn { position: fixed; z-index: 4; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; padding: 8px 10px; font: 600 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--bone); background: var(--glass); border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
 
+#dinoBtn { position: fixed; z-index: 4; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); padding: 14px 24px; font-size: 22px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); white-space: nowrap; }
+#dinoBtn kbd { margin-left: 8px; color: #1d1205; border-color: rgba(29, 18, 5, 0.4); background: rgba(255, 255, 255, 0.25); }
+#flash { inset: 0; background: var(--bone); opacity: 0; }
 @media (max-width: 640px) {
   #stats { min-width: 150px; padding: 8px 10px; }
   .value { font-size: 18px; }
-  #compass { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 50%; }
+  #compass { display: none; }
+  #dinoBtn { left: auto; right: 96px; transform: none; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); padding: 14px 16px; font-size: 18px; }
+  #dinoBtn kbd { display: none; }
   #tracker { width: 110px; height: 110px; top: calc(54px + env(safe-area-inset-top, 0px)); bottom: auto; }
   #trackerLabel, #grid { display: none; }
   #toast { top: calc(120px + env(safe-area-inset-top, 0px)); }
   #tJump { right: 22px; }
-  #tSprint { right: 96px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { #toast, .bar > i, #hurt { transition: none; } }
 </style>
@@ -100,7 +102,6 @@ kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--li
   <div class="stat-row"><span class="label">Amber</span><span class="value amber" id="amberCount">0/10</span></div>
   <div class="stat-row"><span class="label">Species logged</span><span class="value" id="speciesCount">0/7</span></div>
   <div><div class="stat-row"><span class="label">Health</span></div><div class="bar" id="healthBar"><i></i></div></div>
-  <div><div class="stat-row"><span class="label">Stamina</span></div><div class="bar" id="staminaBar"><i></i></div></div>
 </div>
 <div class="hud panel" id="compass"><div id="heading">N 000°</div><div id="area">Landing Beach</div></div>
 <div class="hud panel" id="toast" role="status"></div>
@@ -109,12 +110,13 @@ kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--li
 <div class="hud" id="grid">GRID X +000 Z +000</div>
 <div class="hud" id="crosshair"></div>
 <div class="hud" id="hurt"></div>
+<div class="hud" id="flash"></div>
+<button class="btn" id="dinoBtn" type="button" hidden>Go to T-Rex<kbd>Enter</kbd></button>
 <button id="muteBtn" type="button">Sound on</button>
 
 <div id="touch" hidden>
   <div id="joy"><div id="knob"></div></div>
   <button class="tbtn" id="tJump" type="button">JUMP</button>
-  <button class="tbtn" id="tSprint" type="button">RUN</button>
 </div>
 
 <div class="overlay" id="startScreen">
@@ -123,19 +125,17 @@ kbd { font: 600 11px/1 var(--mono); padding: 4px 6px; border: 1px solid var(--li
     <h1>Isla Nublar</h1>
     <p>You've landed on the beach below the main gate. Walk the park on foot, recover <strong>10 pieces of amber</strong> and log all <strong>7 species</strong>. The T-Rex paddock fence is breached, and the raptor pen gate is open.</p>
     <div class="keys" id="keysDesktop">
-      <div><kbd>W A S D</kbd> Walk</div>
+      <div><kbd>↑</kbd> Run</div>
       <div><kbd>← →</kbd> Turn</div>
-      <div><kbd>↑ ↓</kbd> Walk</div>
-      <div><kbd>Mouse</kbd> Look</div>
-      <div><kbd>Shift</kbd> Sprint</div>
+      <div><kbd>Enter</kbd> Go to a dinosaur</div>
       <div><kbd>Space</kbd> Jump</div>
-      <div><kbd>M</kbd> Sound</div>
-      <div><kbd>Esc</kbd> Pause</div>
+      <div><kbd>Shift</kbd> Super speed</div>
+      <div><kbd>Mouse drag</kbd> Look</div>
     </div>
     <div class="keys" id="keysTouch" hidden>
       <div><kbd>Left stick</kbd> Walk</div>
       <div><kbd>Drag</kbd> Look</div>
-      <div><kbd>RUN</kbd> Sprint</div>
+      <div><kbd>GO TO DINO</kbd> Jump to a dinosaur</div>
       <div><kbd>JUMP</kbd> Jump</div>
     </div>
     <div class="actions"><button class="btn" id="startBtn" type="button" disabled>Building island…</button></div>
@@ -744,17 +744,19 @@ function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.8; $
 /* ---------- player + input ---------- */
 const EYE = 1.7;
 const player = { x: 0, z: 268, y: 0, vy: 0, yaw: 0, pitch: 0.02, health: 100, stamina: 100, onGround: true, hurtT: 99, bob: 0, stepT: 0 };
-let state = 'menu', shake = 0, elapsed = 0, lockActive = false, dragLook = false, dragging = false, wonShown = false;
+let state = 'menu', shake = 0, elapsed = 0, dragging = false, wonShown = false;
 const logged = new Set();
 const keys = {};
 const joy = { x: 0, y: 0, id: null }, look = { id: null, x: 0, y: 0 };
-let touchSprint = false, touchJump = false;
+let touchJump = false;
 const isTouch = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
 if (isTouch) { $('#keysDesktop').hidden = true; $('#keysTouch').hidden = false; }
 
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'KeyM') setMuted(!muted);
+  if (state === 'play' && !e.repeat && (e.code === 'Enter' || e.code === 'KeyN')) { e.preventDefault(); goToDino(); }
+  if (state === 'play' && /^Digit[1-7]$/.test(e.code)) goToDino(TOUR[+e.code.slice(5) - 1]);
   if (state === 'play' && (e.code === 'Space' || e.code.startsWith('Arrow'))) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -763,21 +765,13 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 function turn(dx, dy, k) { player.yaw -= dx * k; player.pitch = clamp(player.pitch - dy * k, -1.45, 1.45); }
 document.addEventListener('mousemove', e => {
   if (state !== 'play') return;
-  if (lockActive || dragging) turn(e.movementX || 0, e.movementY || 0, 0.0022);
+  if (dragging) turn(e.movementX || 0, e.movementY || 0, 0.004);
 });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'play' || isTouch) return;
-  if (!lockActive && !dragLook) requestLock(); else dragging = true;
+  dragging = true;
 });
 addEventListener('mouseup', () => { dragging = false; });
-function requestLock() {
-  try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { dragLook = true; }); } catch (e) { dragLook = true; }
-}
-document.addEventListener('pointerlockchange', () => {
-  lockActive = document.pointerLockElement === canvas;
-  if (!lockActive && state === 'play' && !isTouch && !dragLook) pause('Expedition paused', 'Take a breath', 'Your progress is kept. Click resume to keep exploring.');
-});
-document.addEventListener('pointerlockerror', () => { dragLook = true; toast('Drag with the mouse to look around.'); });
 
 // touch: joystick on the left, drag anywhere else to look
 const joyEl = $('#joy'), knob = $('#knob');
@@ -802,11 +796,10 @@ function endTouch(e) {
   }
 }
 addEventListener('touchend', endTouch); addEventListener('touchcancel', endTouch);
-$('#tSprint').addEventListener('touchstart', e => { e.preventDefault(); touchSprint = !touchSprint; e.currentTarget.classList.toggle('on', touchSprint); }, { passive: false });
 $('#tJump').addEventListener('touchstart', e => { e.preventDefault(); touchJump = true; }, { passive: false });
 
 /* ---------- HUD ---------- */
-const hud = { amber: $('#amberCount'), species: $('#speciesCount'), health: $('#healthBar > i'), stamina: $('#staminaBar > i'), heading: $('#heading'), area: $('#area'), grid: $('#grid'), hurt: $('#hurt'), toast: $('#toast') };
+const hud = { amber: $('#amberCount'), species: $('#speciesCount'), health: $('#healthBar > i'), heading: $('#heading'), area: $('#area'), grid: $('#grid'), hurt: $('#hurt'), flash: $('#flash'), toast: $('#toast') };
 let toastTimer = 0;
 function toast(msg, danger = false, secs = 3.2) { hud.toast.textContent = msg; hud.toast.classList.add('show'); hud.toast.classList.toggle('danger', danger); toastTimer = secs; }
 const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -855,6 +848,58 @@ function drawTracker(t) {
   tg.fillStyle = '#efe7d4'; tg.beginPath(); tg.moveTo(R, R - 11); tg.lineTo(R + 7, R + 8); tg.lineTo(R, R + 4); tg.lineTo(R - 7, R + 8); tg.closePath(); tg.fill();
 }
 
+/* ---------- quick travel to each dinosaur ---------- */
+const TOUR = ['trex', 'brachio', 'trike', 'stego', 'galli', 'raptor', 'ptero'];
+const SHORT = { trex: 'T-Rex', brachio: 'Brachiosaurus', trike: 'Triceratops', stego: 'Stegosaurus', galli: 'Gallimimus', raptor: 'Raptors', ptero: 'Pteranodons' };
+let tourIdx = 0, flashT = 0;
+function updateDinoBtn() { $('#dinoBtn').firstChild.textContent = `Go to ${SHORT[TOUR[tourIdx]]}`; }
+function losClear(ax, az, bx, bz) {
+  const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 1.5);
+  for (let i = 0; i <= n; i++) {
+    const x = lerp(ax, bx, i / n), z = lerp(az, bz, i / n), list = circleGrid.get(Math.floor(x / CELL) + ',' + Math.floor(z / CELL));
+    if (list) for (const c of list) if (Math.hypot(x - c.x, z - c.z) < c.r + 1.6) return false;
+  }
+  return true;
+}
+function goToDino(key) {
+  if (state !== 'play') return;
+  if (!key) { key = TOUR[tourIdx]; tourIdx = (tourIdx + 1) % TOUR.length; }
+  else tourIdx = (TOUR.indexOf(key) + 1) % TOUR.length;
+  let lx, lz, ly, px, pz;
+  if (key === 'ptero') {
+    const p = pteros[0], a = Math.atan2(-VOLC.z, -VOLC.x);
+    px = VOLC.x + Math.cos(a) * 95; pz = VOLC.z + Math.sin(a) * 95; lx = p.g.position.x; lz = p.g.position.z; ly = p.g.position.y;
+  } else {
+    const d = dinos.find(o => o.key === key), c = d.c;
+    lx = d.x; lz = d.z; ly = heightAt(d.x, d.z) + c.hip * (key === 'brachio' ? 1.6 : 1);
+    if (c.predator) { // stand safely outside the fence, on the dinosaur's side
+      // stand outside the fence and bring the predator up to it, with a clear view between
+      let a0 = Math.atan2(d.z - d.home.z, d.x - d.home.x), a = a0;
+      for (let k = 0; k < 40; k++) {
+        a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.12;
+        const ox = Math.cos(a), oz = Math.sin(a);
+        px = d.home.x + ox * (d.home.r + 9); pz = d.home.z + oz * (d.home.r + 9);
+        if (heightAt(px, pz) > 1 && losClear(px, pz, d.home.x + ox * (d.home.r - 12), d.home.z + oz * (d.home.r - 12))) break;
+      }
+      d.x = d.home.x + Math.cos(a) * (d.home.r - 12); d.z = d.home.z + Math.sin(a) * (d.home.r - 12);
+      d.heading = Math.atan2(px - d.x, pz - d.z); lx = d.x; lz = d.z;
+    } else {
+      const dist = 12 + c.radius * 2.5;
+      let a = Math.atan2(d.z - d.home.z, d.x - d.home.x);
+      for (let k = 0; k < 24; k++, a += 0.27) { px = d.x + Math.cos(a) * dist; pz = d.z + Math.sin(a) * dist; if (heightAt(px, pz) > 1 && losClear(px, pz, d.x, d.z)) break; }
+    }
+  }
+  player.x = px; player.z = pz; collide(player, 0.45);
+  player.y = heightAt(player.x, player.z); player.vy = 0;
+  player.yaw = Math.atan2(-(lx - player.x), -(lz - player.z));
+  player.pitch = clamp(Math.atan2(ly - (player.y + EYE), Math.hypot(lx - player.x, lz - player.z)), -0.3, 0.6);
+  flashT = 1; if (ac) { const o = tone(300, 0, 0.35, 0.12, 'triangle'); o.frequency.exponentialRampToValueAtTime(1200, ac.currentTime + 0.3); }
+  if (!logged.has(key)) { logged.add(key); logSound(); updateCounts(); }
+  toast(`Here's the ${SHORT[key]}! (${logged.size}/${SPECIES_TOTAL} species logged)`);
+  updateDinoBtn();
+}
+$('#dinoBtn').addEventListener('click', e => { goToDino(); e.currentTarget.blur(); });
+
 /* ---------- game flow ---------- */
 function show(el, on) { el.hidden = !on; }
 function pause(eyebrow, title, text, canRestart = false) {
@@ -866,12 +911,11 @@ function pause(eyebrow, title, text, canRestart = false) {
 function play() {
   initAudio();
   show($('#startScreen'), false); show($('#pauseScreen'), false);
-  show($('#touch'), isTouch);
-  state = 'play';
-  if (!isTouch && !dragLook) requestLock();
+  show($('#touch'), isTouch); show($('#dinoBtn'), true);
+  state = 'play'; updateDinoBtn();
 }
 function respawn() {
-  Object.assign(player, { x: 0, z: 268, vy: 0, yaw: 0, pitch: 0.02, health: 100, stamina: 100, hurtT: 99 });
+  Object.assign(player, { x: 0, z: 268, vy: 0, yaw: 0, pitch: 0.02, health: 100, hurtT: 99 });
   player.y = heightAt(player.x, player.z);
   for (const d of dinos) { d.x = d.spawn.x; d.z = d.spawn.z; d.state = 'wander'; pickTarget(d); }
   play();
@@ -894,16 +938,14 @@ function damage(amount, who) {
 
 /* ---------- per-frame updates ---------- */
 function updatePlayer(dt) {
-  player.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.4 * dt;
+  player.yaw += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.8 * dt;
   let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.x;
   let mz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
   const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
   const moving = l > 0.1;
-  const wantSprint = (keys.ShiftLeft || keys.ShiftRight || touchSprint) && moving && mz > 0;
-  const sprint = wantSprint && player.stamina > 1;
-  player.stamina = clamp(player.stamina + (sprint ? -22 : 14) * dt, 0, 100);
+  const sprint = keys.ShiftLeft || keys.ShiftRight;
   const ground0 = heightAt(player.x, player.z);
-  let speed = sprint ? 9.5 : 5.2; if (ground0 < 0.1) speed *= 0.6;
+  let speed = sprint ? 26 : 15; if (ground0 < 0.1) speed *= 0.7;
   const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const vx = (fx * mz + rx * mx) * speed, vz = (fz * mz + rz * mx) * speed;
   if (heightAt(player.x + vx * dt, player.z) > -1.1) player.x += vx * dt;
@@ -921,8 +963,8 @@ function updatePlayer(dt) {
   if (player.y <= ground) { if (!player.onGround && player.vy < -6) step(0.25); player.y = ground; player.vy = 0; player.onGround = true; }
   else if (player.y > ground + 0.05) player.onGround = false;
   if (moving && player.onGround) {
-    player.bob += dt * (sprint ? 13 : 9);
-    player.stepT -= dt; if (player.stepT <= 0) { step(sprint ? 0.12 : 0.07); player.stepT = sprint ? 0.32 : 0.5; }
+    player.bob += dt * 12;
+    player.stepT -= dt; if (player.stepT <= 0) { step(0.09); player.stepT = sprint ? 0.2 : 0.28; }
   }
   player.hurtT += dt;
   if (player.hurtT > 5) player.health = Math.min(100, player.health + 4 * dt);
@@ -1063,7 +1105,7 @@ function frame() {
 
   // HUD
   hud.health.style.width = player.health + '%';
-  hud.stamina.style.width = player.stamina + '%';
+  flashT = Math.max(0, flashT - dt * 2.5); hud.flash.style.opacity = String(flashT);
   hud.hurt.style.opacity = player.hurtT < 0.6 ? String(1 - player.hurtT / 0.6) : String(player.health < 35 ? 0.35 : 0);
   const deg = ((-player.yaw * 180 / Math.PI) % 360 + 360) % 360;
   hud.heading.textContent = `${DIRS[Math.round(deg / 45) % 8]} ${String(Math.round(deg) % 360).padStart(3, '0')}°`;

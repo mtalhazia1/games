@@ -28,22 +28,18 @@ A small Minecraft-style block island starring fan versions of Mikey (green turtl
 **Play:** open `mikey-and-jj/index.html` in a browser (needs internet for the Three.js CDN).
 
 - 64×64 island: Mikey's and JJ's houses, a mountain diamond mine, trees, beach and sea.
-- Play as Mikey or JJ; the other one follows you, fights mobs and talks. Switch any time.
-- Both characters speak out loud (browser text-to-speech, different voices) with speech bubbles.
-- Mobs: zombies, skeletons (arrows), creepers (explode), spiders at night; pigs, cows, sheep, chickens by day.
-- Break and build blocks, light TNT, day/night cycle, sound effects and music (all generated in the browser).
-- Goal: find the 5 diamonds in the mine.
+- Made for 3–4 year olds: only arrow keys, Space and Enter. The camera follows by itself, and the heroes can't lose (hearts always come back).
+- Play as Mikey or JJ; the other one follows you, fights mobs and talks. Both speak out loud (browser text-to-speech) with speech bubbles, and give spoken hints when the player is idle.
+- Mobs: zombies, skeletons, creepers and spiders at night (slow, at most 3, one hit to beat); pigs, cows, sheep and chickens by day (pet them!).
+- Long days (about 10 minutes) and short nights (about 2 minutes).
+- Goal: find the 5 sparkling diamonds in the mine. Enter walks there by itself and digs the diamond.
 
-| Control | Desktop | Touch |
+| Control | Keyboard | Touch |
 |---|---|---|
-| Walk | W A S D / ↑ ↓ (← → turn) | Left stick |
-| Look | Mouse | Drag |
-| Hit / break | Left click or Q | HIT |
-| Build | Right click or E | BUILD |
-| Jump / swim | Space | JUMP |
-| Pick block | 1–9 or wheel | Tap hotbar |
-| Switch Mikey/JJ | Tab | SWAP |
-| Make them talk | T | TALK |
-| Camera / time / sound | V / N / M | VIEW |
+| Walk | ↑ | ▲ |
+| Turn | ← → (↓ turns around) | ◀ ▶ ▼ |
+| Jump / hit mob / dig / pet animal | Space (or click) | ★ (or tap the screen) |
+| Go find a diamond | Enter | FIND ◆ |
+| Grown-ups: switch player, talk, mute, skip to night | Tab, T, M, N | SWAP |
 
 Fan-made, not affiliated with Maizen.

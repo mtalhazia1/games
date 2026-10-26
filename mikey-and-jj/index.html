@@ -107,12 +107,18 @@ canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: bl
 .card .mcbtn { font-size: 11px; padding: 12px 18px; margin-top: 10px; }
 
 #touch { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
-#joy { position: absolute; left: 14px; bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.25); pointer-events: auto; touch-action: none; }
-#knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.35); }
-#tbtns { position: absolute; right: 12px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 60px); gap: 8px; pointer-events: auto; }
-.tb { width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.35); color: #fff; font: 8px/1.2 var(--pixel); touch-action: none; }
-.tb.big { background: rgba(208, 40, 58, 0.55); }
-.tb.build { background: rgba(140, 200, 60, 0.5); }
+#dpad { position: absolute; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-areas: ". up ." "left . right" ". down ."; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; pointer-events: auto; }
+#tbtns { position: absolute; right: calc(10px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(2, 78px); grid-template-areas: "swap swap" "go act"; gap: 8px; justify-items: center; align-items: end; pointer-events: auto; }
+.tb { width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.45); background: rgba(0,0,0,0.4); color: #fff; font: 10px/1.2 var(--pixel); touch-action: none; }
+.tb.dp { width: 58px; height: 58px; border-radius: 14px; font: 26px/1 var(--body); }
+.tb.act { grid-area: act; background: rgba(208, 40, 58, 0.7); font-size: 30px; }
+.tb.go { grid-area: go; background: rgba(40, 190, 180, 0.7); }
+.tb.swap { grid-area: swap; width: 120px; height: 40px; border-radius: 20px; font-size: 9px; }
+kbd { font: 9px/1 var(--pixel); color: var(--ink); background: #444; border: 2px solid #111; border-bottom-width: 4px; padding: 6px 8px; display: inline-block; white-space: nowrap; border-radius: 3px; }
+#legend { left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 7px; padding: 10px 12px; font: 800 14px/1.2 var(--body); }
+#legend div { display: flex; gap: 6px; align-items: center; }
+.bigkeys { display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center; text-align: left; max-width: 380px; margin: 14px auto 4px; font: 800 17px/1.25 var(--body); }
+.bigkeys kbd { font-size: 13px; padding: 9px 11px; }
 @media (max-width: 720px) {
   #goals { top: auto; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); font-size: 8px; gap: 10px; }
   #hint { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); font-size: 12px; }
@@ -122,9 +128,10 @@ canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: bl
   .bubble { font-size: 13px; max-width: 170px; }
 }
 body.touch #bottom { bottom: calc(166px + env(safe-area-inset-bottom, 0px)); }
-body.touch #goals { bottom: calc(240px + env(safe-area-inset-bottom, 0px)); }
-body.touch #hint { bottom: calc(284px + env(safe-area-inset-bottom, 0px)); }
-body.touch #lockHint, body.touch .keys { display: none; }
+body.touch #goals { bottom: calc(250px + env(safe-area-inset-bottom, 0px)); }
+body.touch #hint { bottom: calc(292px + env(safe-area-inset-bottom, 0px)); }
+body.touch #lockHint, body.touch #legend, body.touch .bigkeys { display: none; }
+body.touch #bottom { bottom: calc(206px + env(safe-area-inset-bottom, 0px)); }
 </style>
 
 <canvas id="scene"></canvas>
@@ -146,25 +153,32 @@ body.touch #lockHint, body.touch .keys { display: none; }
   <button class="mcbtn" id="bCam" type="button" title="Camera (V)">VIEW</button>
   <button class="mcbtn" id="bTime" type="button" title="Skip time (N)">TIME</button>
 </div>
-<div class="hud" id="crosshair"></div>
+<div class="hud" id="crosshair" hidden></div>
 <div class="hud" id="hurt"></div>
 <div class="hud panel" id="toast"></div>
 <div class="hud" id="lockHint" hidden>CLICK TO LOOK AROUND</div>
+<div class="hud panel" id="legend">
+  <div><kbd>↑</kbd> walk &nbsp;<kbd>←</kbd><kbd>→</kbd> turn</div>
+  <div><kbd>SPACE</kbd> jump · hit · dig</div>
+  <div><kbd>ENTER</kbd> find a diamond</div>
+</div>
 <div class="hud" id="bottom">
   <div id="itemName"></div>
   <div id="hearts"></div>
-  <div id="hotbar"></div>
+  <div id="hotbar" hidden></div>
 </div>
 
 <div id="touch" hidden>
-  <div id="joy"><div id="knob"></div></div>
+  <div id="dpad">
+    <button class="tb dp" id="tUp" type="button" style="grid-area:up" aria-label="Walk">▲</button>
+    <button class="tb dp" id="tLeft" type="button" style="grid-area:left" aria-label="Turn left">◀</button>
+    <button class="tb dp" id="tRight" type="button" style="grid-area:right" aria-label="Turn right">▶</button>
+    <button class="tb dp" id="tDown" type="button" style="grid-area:down" aria-label="Turn around">▼</button>
+  </div>
   <div id="tbtns">
-    <button class="tb" id="tSwap" type="button">SWAP</button>
-    <button class="tb" id="tTalk" type="button">TALK</button>
-    <button class="tb" id="tCam" type="button">VIEW</button>
-    <button class="tb" id="tJump" type="button">JUMP</button>
-    <button class="tb build" id="tPlace" type="button">BUILD</button>
-    <button class="tb big" id="tHit" type="button">HIT</button>
+    <button class="tb swap" id="tSwap" type="button">SWAP</button>
+    <button class="tb go" id="tGo" type="button">FIND<br>◆</button>
+    <button class="tb act" id="tAct" type="button" aria-label="Jump, hit, dig">★</button>
   </div>
 </div>
 
@@ -172,23 +186,17 @@ body.touch #lockHint, body.touch .keys { display: none; }
   <div class="card">
     <h1><span class="m">Mikey</span> <span class="a">&amp;</span> <span class="j">JJ</span></h1>
     <div class="sub">BLOCK ISLAND</div>
-    <p>A tiny block island with two houses, a diamond mine and lots of mobs. Pick who you want to be. Your buddy follows you, fights mobs and chats with you.</p>
+    <p>Walk around the island with Mikey and JJ and find the shiny diamonds!</p>
     <div class="pick">
-      <button class="pickbtn M" id="pickM" type="button" disabled><canvas width="8" height="8"></canvas>PLAY AS MIKEY</button>
-      <button class="pickbtn J" id="pickJ" type="button" disabled><canvas width="8" height="8"></canvas>PLAY AS JJ</button>
+      <button class="pickbtn M" id="pickM" type="button" disabled><canvas width="8" height="8"></canvas>◀ MIKEY</button>
+      <button class="pickbtn J" id="pickJ" type="button" disabled><canvas width="8" height="8"></canvas>JJ ▶</button>
     </div>
-    <div class="keys">
-      <span><kbd>W A S D</kbd> <kbd>↑ ↓</kbd></span><span>Walk (← → turns)</span>
-      <span><kbd>MOUSE</kbd></span><span>Look around</span>
-      <span><kbd>LEFT CLICK</kbd> <kbd>Q</kbd></span><span>Hit mobs / break blocks</span>
-      <span><kbd>RIGHT CLICK</kbd> <kbd>E</kbd></span><span>Build with the block in your hand</span>
-      <span><kbd>SPACE</kbd></span><span>Jump / swim up</span>
-      <span><kbd>1-9</kbd> <kbd>WHEEL</kbd></span><span>Choose block</span>
-      <span><kbd>TAB</kbd></span><span>Switch between Mikey and JJ</span>
-      <span><kbd>T</kbd></span><span>Make them talk</span>
-      <span><kbd>V</kbd> <kbd>N</kbd> <kbd>M</kbd></span><span>Camera, skip day/night, sound</span>
+    <div class="bigkeys">
+      <span><kbd>↑</kbd> <kbd>←</kbd> <kbd>→</kbd></span><span>Walk and turn</span>
+      <span><kbd>SPACE</kbd></span><span>Jump, hit mobs, dig blocks, pet animals</span>
+      <span><kbd>ENTER</kbd></span><span>Go find a diamond (walks there by itself)</span>
     </div>
-    <div class="fine">Goal: find the 5 diamonds hidden in the mountain mine. Hit TNT to light it! A fan-made game, not affiliated with Maizen.</div>
+    <div class="fine">Press ◀ for Mikey or ▶ for JJ. Nobody can lose: hearts always come back. Grown-ups: Tab switches player, T makes them talk, M mutes, N skips to night. Fan-made, not affiliated with Maizen.</div>
   </div>
 </div>
 
@@ -196,7 +204,7 @@ body.touch #lockHint, body.touch .keys { display: none; }
   <div class="card">
     <h1><span class="a">ALL 5</span><br><span class="m">DIAMONDS!</span></h1>
     <p id="winText">Mikey and JJ are the best diamond hunters ever.</p>
-    <button class="mcbtn" id="winBtn" type="button">KEEP PLAYING</button>
+    <button class="mcbtn" id="winBtn" type="button">KEEP PLAYING (ENTER)</button>
   </div>
 </div>
 
@@ -382,7 +390,7 @@ function genWorld() {
     set(x0 + 3, y0 + 4, z0 + 3, B.GLOW);
   }
   // paths, garden, treasure
-  for (let x = 25; x <= 49; x++) set(x, VY, 28, B.COBBLE);
+  for (let x = 25; x <= 49; x++) { set(x, VY, 28, B.COBBLE); for (const z of [28, 29]) for (let y = VY + 1; y <= VY + 4; y++) if (!(x >= 47 && z === 28 && y > VY + 3)) set(x, y, z, B.AIR); }
   for (const x of [25, 37]) set(x, VY, 29, B.COBBLE);
   for (let z = 28; z <= 29; z++) set(48, VY, z, B.COBBLE), set(49, VY, z, B.COBBLE);
   set(31, VY + 1, 34, B.GOLD); set(30, VY + 1, 33, B.TNT); set(32, VY + 1, 33, B.TNT);
@@ -783,10 +791,10 @@ function updateMusic(dt) {
 /* ================= entities ================= */
 const ents = [];
 const MOBS = {
-  zombie: { hp: 20, speed: 2.4, hostile: true, burns: true, dmg: 2, hw: 0.3, h: 1.8, sound: 'zombie' },
-  skeleton: { hp: 16, speed: 2.5, hostile: true, burns: true, ranged: true, hw: 0.3, h: 1.8, sound: 'skeleton' },
-  creeper: { hp: 16, speed: 2.3, hostile: true, explode: true, hw: 0.3, h: 1.5, sound: null },
-  spider: { hp: 14, speed: 3.5, hostile: true, dmg: 2, hw: 0.6, h: 0.8, sound: 'spider' },
+  zombie: { hp: 20, speed: 1.8, hostile: true, burns: true, dmg: 2, hw: 0.3, h: 1.8, sound: 'zombie' },
+  skeleton: { hp: 16, speed: 1.9, hostile: true, burns: true, ranged: true, hw: 0.3, h: 1.8, sound: 'skeleton' },
+  creeper: { hp: 16, speed: 1.7, hostile: true, explode: true, hw: 0.3, h: 1.5, sound: null },
+  spider: { hp: 14, speed: 2.6, hostile: true, dmg: 2, hw: 0.6, h: 0.8, sound: 'spider' },
   pig: { hp: 10, speed: 1.3, hw: 0.45, h: 0.9, sound: 'pig' },
   cow: { hp: 10, speed: 1.2, hw: 0.45, h: 1.3, sound: 'cow' },
   sheep: { hp: 8, speed: 1.2, hw: 0.45, h: 1.25, sound: 'sheep' },
@@ -926,7 +934,7 @@ function updateTNT(dt) {
 let shake = 0;
 function explode(x, y, z, power, src) {
   SFX.explode(Math.max(0.35, distVol(x, y, z, 50))); shake = Math.max(shake, 0.5 * Math.max(0.2, distVol(x, y, z, 30)));
-  const r = Math.ceil(power);
+  const r = (src && src.kind === 'creeper') ? -1 : Math.ceil(power);
   for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
     if (dx * dx + dy * dy + dz * dz > power * power * (0.75 + Math.random() * 0.4)) continue;
     const bx = Math.floor(x + dx), by = Math.floor(y + dy), bz = Math.floor(z + dz), id = getB(bx, by, bz);
@@ -952,7 +960,8 @@ function explode(x, y, z, power, src) {
 let kills = 0, diaFound = 0;
 const alive = () => ['M', 'J'].map(k => chars[k]).filter(c => !c.ko);
 function damage(e, amt, from) {
-  if (e.dead || e.ko || amt <= 0) return;
+  if (e.kind === 'char' && amt > 0) amt = Math.min(1, Math.max(0, e.hp - 4));
+  if (e.dead || e.ko || (amt <= 0 && e.kind !== 'char')) return;
   if (e.kind === 'char' && e.hurtT > 0.35) return;
   e.hp -= amt; e.hurtT = 0.45;
   if (from) { const dx = e.x - from.x, dz = e.z - from.z, d = Math.hypot(dx, dz) || 1; e.kbx += dx / d * 6; e.kbz += dz / d * 6; if (e.onGround) e.vy = 5; }
@@ -960,8 +969,7 @@ function damage(e, amt, from) {
     e.lastHurt = now() / 1000; SFX.hurt(e.key);
     if (e === ctrl()) { $('hurt').style.opacity = 1; setTimeout(() => $('hurt').style.opacity = 0, 220); }
     if (e.hp <= 0) { e.hp = 0; knockOut(e); return; }
-    if (e.hp <= 6 && Talk.can('low' + e.key, 30)) Talk.react(e, 'lowHp', true);
-    else if (Talk.can('hurt' + e.key, 6)) Talk.react(e, 'hurt', true);
+    if (Talk.can('hurt' + e.key, 6)) Talk.react(e, 'hurt', true);
   } else {
     SFX.hit(distVol(e.x, e.y, e.z));
     if (e.def.sound && SFX[e.def.sound]) SFX[e.def.sound](distVol(e.x, e.y, e.z) * 0.8);
@@ -1006,9 +1014,15 @@ const LINES = {
   chicken: { M: ['Bawk bawk! A chicken!', 'Chicken! Chicken!'], J: ['Look at that little chicken!'] },
   wait: { M: ['JJ! Wait for me!', 'Hey, slow down!'], J: ['Mikey, wait up!', 'Over here, Mikey!'] },
   build: { M: ['Building is so much fun!', 'Look what I made!'], J: ['Nice building!', "Let's build something cool!"] },
+  pet: { M: ['Aww, I love you!', 'So cute! Pet pet pet!', 'You are my best friend!'], J: ['Good buddy!', 'Aww, it likes us!', 'So soft!'] },
+  go: { M: ["Let's go find a diamond! Follow me!", 'Diamond time! Here we go!'], J: ["Let's go get a diamond!", 'Follow me to the diamonds!'] },
+  hint: { M: ['Press Enter and we will find a diamond!', 'Press the up arrow to walk!', 'Press Space to jump!'], J: ['Press the Enter key to find diamonds!', 'Use the arrow keys to walk around!', 'Press Space to jump!'] },
+  hintTouch: { M: ['Press the blue button to find a diamond!', 'Press the arrows to walk!'], J: ['Tap the blue button and we will find diamonds!', 'Tap the star to jump!'] },
+  allDone: { M: ['We found all the diamonds! Yay!'], J: ['We already found every diamond! Great job!'] },
 };
 const DIALOGS = {
-  start: [['J', 'Mikey! Look at our new island. It is so small and cozy!'], ['M', 'Wow, JJ! I love it! Our houses are right here!'], ['J', "And there's a diamond mine in the mountain. Let's find all five diamonds!"], ['M', "Diamonds! Let's go!"]],
+  start: [['J', 'Hi! I am JJ!'], ['M', 'And I am Mikey! Welcome to our island!'], ['J', 'Press the arrow keys to walk.'], ['M', 'Press Space to jump and hit mobs!'], ['J', 'Press Enter, and we will go find diamonds!']],
+  startTouch: [['J', 'Hi! I am JJ!'], ['M', 'And I am Mikey! Welcome to our island!'], ['J', 'Press the arrows to walk.'], ['M', 'Tap the star to jump and hit mobs!'], ['J', 'Tap the blue button, and we will go find diamonds!']],
   night: [[['J', 'Uh oh, the sun is going down.'], ['M', "Mobs come out at night! I'm scared, JJ!"], ['J', "Don't worry, Mikey. I'll protect you!"]], [['M', "JJ, it's getting dark!"], ['J', 'Get ready! The mobs are coming!']]],
   morning: [[['J', 'The sun is up! We made it, Mikey!'], ['M', 'Yay! The zombies are burning! Good morning, sun!']], [['M', 'Morning time! No more scary mobs!'], ['J', 'Nice job surviving the night!']]],
   mine: [[['M', "It's so dark in this mine..."], ['J', 'Look at the walls, Mikey. Diamonds hide in the stone!']], [['J', 'Shh. Listen for mobs in the mine.'], ['M', 'I can only hear my tummy rumbling.']]],
@@ -1080,10 +1094,10 @@ if ('speechSynthesis' in window) { chooseVoices(); speechSynthesis.onvoiceschang
 
 /* ================= time of day ================= */
 let dayT = 0.04, isNight = false, daylight = 1;
-const DAY_LEN = 300;
+const DAY_SECS = 600, NIGHT_SECS = 120;
 const SKY_DAY = new THREE.Color(0x87c5ff), SKY_NIGHT = new THREE.Color(0x0c1236), SKY_DUSK = new THREE.Color(0xf29a5c), skyCol = new THREE.Color();
 function updateTime(dt) {
-  dayT = (dayT + dt / DAY_LEN * (isNight ? 1.7 : 1)) % 1;
+  dayT = (dayT + dt * (isNight ? 0.5 / NIGHT_SECS : 0.5 / DAY_SECS)) % 1;
   const a = dayT * Math.PI * 2, sy = Math.sin(a);
   daylight = 0.32 + 0.68 * smoothstep(-0.2, 0.25, sy);
   const nowNight = sy < -0.06;
@@ -1108,14 +1122,24 @@ function updateTime(dt) {
 /* ================= input ================= */
 const keys = {};
 let firstPerson = false, camYaw = Math.PI, camPitch = -0.18, started = false, slot = 0, primaryCd = 0, mouseL = false, mouseR = false, secondaryCd = 0;
-const joy = { x: 0, y: 0, id: null }, touch = { jump: false, hit: false, place: false };
+const touch = { up: false, left: false, right: false, act: false };
+let actCd = 0, turnAroundT = 0, lastInput = now();
 const HOTBAR = [B.PLANKS, B.COBBLE, B.BRICK, B.GLASS, B.LOG, B.GREEN, B.RED, B.GLOW, B.TNT];
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 addEventListener('keydown', e => {
-  if (!started) return;
-  if (['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (['Tab', 'Space', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  if (!started) {
+    if ($('pickM').disabled) return;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') startGame('M');
+    else if (['ArrowRight', 'KeyD', 'Enter', 'Space'].includes(e.code)) startGame('J');
+    return;
+  }
+  if (!$('win').hidden) { if (e.code === 'Enter' || e.code === 'Space') $('win').hidden = true; return; }
   if (e.repeat) { keys[e.code] = true; return; }
-  keys[e.code] = true;
+  keys[e.code] = true; lastInput = now();
+  if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'KeyG') startAuto();
+  if (e.code === 'Space' || e.code === 'KeyQ') actCd = 0;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') turnAround();
   if (/^Digit[1-9]$/.test(e.code)) selectSlot(+e.code.slice(5) - 1);
   if (e.code === 'Tab' || e.code === 'KeyC') swapChar();
   if (e.code === 'KeyT') talkNow();
@@ -1129,9 +1153,8 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseL =
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (!started || isTouch) return;
-  audioInit();
-  if (document.pointerLockElement !== canvas) { canvas.requestPointerLock && canvas.requestPointerLock(); return; }
-  if (e.button === 0) { mouseL = true; primaryCd = 0; }
+  audioInit(); lastInput = now();
+  if (e.button === 0) { mouseL = true; actCd = 0; }
   if (e.button === 2) { mouseR = true; secondary(); secondaryCd = 0.3; }
 });
 addEventListener('mouseup', e => { if (e.button === 0) mouseL = false; if (e.button === 2) mouseR = false; });
@@ -1143,24 +1166,14 @@ addEventListener('mousemove', e => {
 document.addEventListener('pointerlockchange', () => { $('lockHint').hidden = !started || document.pointerLockElement === canvas || isTouch; });
 addEventListener('wheel', e => { if (started) selectSlot((slot + (e.deltaY > 0 ? 1 : -1) + 9) % 9); }, { passive: true });
 
-// touch controls
+// touch controls: a big d-pad, a star button (jump / hit / dig) and a FIND button
 if (isTouch) {
   document.body.classList.add('touch'); $('touch').hidden = false;
-  const joyEl = $('joy'), knob = $('knob');
-  joyEl.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; joy.id = t.identifier; moveJoy(t); }, { passive: false });
-  joyEl.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === joy.id) moveJoy(t); }, { passive: false });
-  const endJoy = e => { for (const t of e.changedTouches) if (t.identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; } };
-  joyEl.addEventListener('touchend', endJoy); joyEl.addEventListener('touchcancel', endJoy);
-  function moveJoy(t) { const r = joyEl.getBoundingClientRect(); let dx = (t.clientX - r.left - r.width / 2) / (r.width / 2), dy = (t.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } joy.x = dx; joy.y = dy; knob.style.transform = `translate(${dx * 40}px, ${dy * 40}px)`; }
-  const looks = {};
-  canvas.addEventListener('touchstart', e => { audioInit(); for (const t of e.changedTouches) looks[t.identifier] = [t.clientX, t.clientY]; }, { passive: true });
-  canvas.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) { const l = looks[t.identifier]; if (!l) continue; camYaw -= (t.clientX - l[0]) * 0.006; camPitch = clamp(camPitch - (t.clientY - l[1]) * 0.006, -1.45, 1.45); looks[t.identifier] = [t.clientX, t.clientY]; } }, { passive: false });
-  canvas.addEventListener('touchend', e => { for (const t of e.changedTouches) delete looks[t.identifier]; });
-  const hold = (id, k, onDown) => { const el = $(id); el.addEventListener('touchstart', e => { e.preventDefault(); audioInit(); touch[k] = true; onDown && onDown(); }, { passive: false }); const up = e => { e.preventDefault(); touch[k] = false; }; el.addEventListener('touchend', up); el.addEventListener('touchcancel', up); };
-  hold('tJump', 'jump'); hold('tHit', 'hit', () => { primaryCd = 0; }); hold('tPlace', 'place', () => { secondary(); secondaryCd = 0.35; });
-  $('tSwap').addEventListener('touchstart', e => { e.preventDefault(); swapChar(); }, { passive: false });
-  $('tTalk').addEventListener('touchstart', e => { e.preventDefault(); talkNow(); }, { passive: false });
-  $('tCam').addEventListener('touchstart', e => { e.preventDefault(); toggleCam(); }, { passive: false });
+  const hold = (id, k, onDown) => { const el = $(id); el.addEventListener('touchstart', e => { e.preventDefault(); audioInit(); lastInput = now(); touch[k] = true; onDown && onDown(); }, { passive: false }); const up = e => { e.preventDefault(); touch[k] = false; }; el.addEventListener('touchend', up); el.addEventListener('touchcancel', up); };
+  const tap = (id, fn) => $(id).addEventListener('touchstart', e => { e.preventDefault(); audioInit(); lastInput = now(); fn(); }, { passive: false });
+  hold('tUp', 'up'); hold('tLeft', 'left'); hold('tRight', 'right'); hold('tAct', 'act', () => { actCd = 0; });
+  tap('tDown', turnAround); tap('tGo', startAuto); tap('tSwap', swapChar);
+  canvas.addEventListener('touchstart', e => { if (!started) return; audioInit(); lastInput = now(); actCd = 0; smartAction(); actCd = 0.35; }, { passive: true });
 }
 
 function selectSlot(i) {
@@ -1254,7 +1267,7 @@ function gotDiamond(x, y, z) {
   diamonds.splice(i, 1); diaFound++; SFX.diamond();
   for (let k = 0; k < 24; k++) particle(x + 0.5, y + 0.5, z + 0.5, pick([0x6ff0e4, 0xbffffa, 0x2fd0c8]), R(0.08, 0.16), R(-2, 2), R(1, 5), R(-2, 2), R(0.6, 1.2));
   toast(diaFound >= 5 ? 'ALL 5 DIAMONDS FOUND!' : `DIAMOND ${diaFound} OF 5!`);
-  if (diaFound >= 5) { SFX.fanfare(); Talk.q = []; Talk.dialog(DIALOGS.all); setTimeout(() => { $('win').hidden = false; $('winText').textContent = `Mikey and JJ found every diamond and beat ${kills} mob${kills === 1 ? '' : 's'}. The best diamond hunters ever!`; if (document.exitPointerLock) document.exitPointerLock(); }, 2500); }
+  if (diaFound >= 5) { SFX.fanfare(); { const c = ctrl(); for (let k = 0; k < 90; k++) particle(c.x + R(-3, 3), c.y + R(1, 4), c.z + R(-3, 3), pick([0xff4d4d, 0xffd54a, 0x6ff0e4, 0x8cc83c, 0xff8fb1, 0x7c9cff]), R(0.1, 0.2), R(-2, 2), R(2, 6), R(-2, 2), R(1.5, 2.5)); } Talk.q = []; Talk.dialog(DIALOGS.all); setTimeout(() => { $('win').hidden = false; $('winText').textContent = `Mikey and JJ found every diamond and beat ${kills} mob${kills === 1 ? '' : 's'}. The best diamond hunters ever!`; if (document.exitPointerLock) document.exitPointerLock(); }, 2500); }
   else Talk.react(ctrl(), 'diamond', true);
 }
 $('winBtn').onclick = () => { $('win').hidden = true; };
@@ -1367,40 +1380,111 @@ let spawnT = 3;
 function spawnLogic(dt) {
   spawnT -= dt; if (spawnT > 0) return; spawnT = 3.5;
   const hostiles = ents.filter(m => !m.dead && m.def.hostile).length, passives = ents.filter(m => !m.dead && !m.def.hostile).length;
-  if (isNight && hostiles < 7) { const s = randomSurfaceSpot(13, 28, ctrl()); if (s) { const r = Math.random(); spawnMob(r < 0.4 ? 'zombie' : r < 0.6 ? 'skeleton' : r < 0.85 ? 'creeper' : 'spider', ...s); } }
+  if (isNight && hostiles < 3) { const s = randomSurfaceSpot(13, 28, ctrl()); if (s) { const r = Math.random(); spawnMob(r < 0.4 ? 'zombie' : r < 0.6 ? 'skeleton' : r < 0.85 ? 'creeper' : 'spider', ...s); } }
   if (!isNight && passives < 10 && Math.random() < 0.3) { const s = randomSurfaceSpot(18, 40, ctrl()); if (s) spawnMob(pick(['pig', 'cow', 'sheep', 'chicken']), ...s); }
 }
 
 /* ================= player ================= */
-let wasInMine = false, swimSaid = 0;
+let wasInMine = false;
+const auto = { on: false, pts: [], dia: null, stuckT: 0, best: 1e9, mineT: 0 };
+function turnAround() { if (auto.on) stopAuto(); if (turnAroundT <= 0) turnAroundT = Math.PI; }
 function updatePlayer(dt) {
   const c = ctrl();
-  if (keys.ArrowLeft) camYaw += 2.3 * dt; if (keys.ArrowRight) camYaw -= 2.3 * dt;
   if (c.ko) { c.vx = c.vz = 0; return; }
-  let f = 0, s = 0;
-  if (keys.KeyW || keys.ArrowUp) f += 1; if (keys.KeyS || keys.ArrowDown) f -= 1;
-  if (keys.KeyD) s += 1; if (keys.KeyA) s -= 1;
-  f -= joy.y; s += joy.x;
-  const len = Math.hypot(f, s); if (len > 1) { f /= len; s /= len; }
-  const sp = (keys.ShiftLeft || keys.ShiftRight) ? 7.5 : 5.2;
-  const fx = Math.sin(camYaw), fz = Math.cos(camYaw), rx = -fz, rz = fx;
-  c.vx = (fx * f + rx * s) * sp; c.vz = (fz * f + rz * s) * sp; c.moving = len > 0.12;
-  if (keys.Space || touch.jump) { if (c.onGround) c.vy = 8.6; else if (c.inWater) c.vy = Math.max(c.vy, 4); }
-  if (firstPerson || c.swing > 0 || mouseL || touch.hit) turnTo(c, camYaw, dt, 16);
-  else if (c.moving) turnTo(c, Math.atan2(c.vx, c.vz), dt, 12);
+  const left = keys.ArrowLeft || keys.KeyA || touch.left, right = keys.ArrowRight || keys.KeyD || touch.right;
+  const fwd = keys.ArrowUp || keys.KeyW || touch.up;
+  if (left || right || fwd) { lastInput = now(); if (auto.on) stopAuto(); }
+  if (turnAroundT > 0) { const st = Math.min(turnAroundT, dt * 6); c.yaw += st; turnAroundT -= st; }
+  if (left) c.yaw += 2.2 * dt; if (right) c.yaw -= 2.2 * dt;
+  if (auto.on) runAuto(c, dt);
+  else {
+    const sp = (keys.ShiftLeft || keys.ShiftRight) ? 7 : 4.8;
+    c.vx = fwd ? Math.sin(c.yaw) * sp : 0; c.vz = fwd ? Math.cos(c.yaw) * sp : 0; c.moving = !!fwd;
+  }
+  if (c.inWater) c.vy = Math.max(c.vy, 2.2);
   physics(c, dt); autoJump(c);
-  primaryCd -= dt; secondaryCd -= dt;
-  if ((mouseL || keys.KeyQ || touch.hit) && primaryCd <= 0) { primary(); primaryCd = 0.28; }
-  if ((mouseR || touch.place) && secondaryCd <= 0) { secondary(); secondaryCd = 0.3; }
+  // the camera follows behind the hero by itself
+  camYaw += wrapA(c.yaw - camYaw) * Math.min(1, dt * 4);
+  camPitch += (-0.26 - camPitch) * Math.min(1, dt * 3);
+  actCd -= dt; secondaryCd -= dt;
+  if ((keys.Space || keys.KeyQ || touch.act || mouseL) && actCd <= 0) { smartAction(); actCd = 0.35; }
+  if ((mouseR || keys.KeyE) && secondaryCd <= 0) { secondary(); secondaryCd = 0.3; }
   const inMine = c.x > MINE.x0 && c.x < MINE.x1 && c.z > MINE.z0 && c.z < MINE.z1 - 2 && c.y < VY + 4;
-  if (inMine && !wasInMine && Talk.can('mine', 120)) Talk.dialog(pick(DIALOGS.mine));
+  if (inMine && !wasInMine && !auto.on && Talk.can('mine', 120)) Talk.dialog(pick(DIALOGS.mine));
   wasInMine = inMine;
   if (c.inWater && Talk.can('swim' + c.key, 40)) { Talk.react(c, 'swim', false); SFX.splash(); }
+}
+/* one button does the right thing: hit a mob, dig a diamond, pet an animal, dig the block ahead, or jump */
+function smartAction() {
+  const c = ctrl(); if (!started || c.ko) return;
+  lastInput = now();
+  let foe = null, fd = 3.6;
+  for (const m of ents) { if (m.dead || !m.def.hostile) continue; const d = Math.hypot(m.x - c.x, m.z - c.z); if (d < fd && Math.abs(m.y - c.y) < 2) { fd = d; foe = m; } }
+  if (foe) { c.yaw = Math.atan2(foe.x - c.x, foe.z - c.z); c.swing = 1; SFX.swing(); damage(foe, 20, c); return; }
+  for (const d of diamonds) {
+    if (Math.hypot(d[0] + 0.5 - c.x, d[1] + 0.5 - (c.y + 1), d[2] + 0.5 - c.z) < 2.7) { c.yaw = Math.atan2(d[0] + 0.5 - c.x, d[2] + 0.5 - c.z); c.swing = 1; breakBlock(d[0], d[1], d[2], B.DIAMOND); return; }
+  }
+  let pet = null, pd = 2.4;
+  for (const m of ents) { if (m.dead || m.def.hostile) continue; const d = Math.hypot(m.x - c.x, m.z - c.z); if (d < pd) { pd = d; pet = m; } }
+  if (pet) { petAnimal(c, pet); return; }
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), bx = Math.floor(c.x + fx * 0.95), bz = Math.floor(c.z + fz * 0.95);
+  for (const dy of [1, 0]) {
+    const by = Math.floor(c.y + 0.01) + dy, id = getB(bx, by, bz);
+    if (!id || id === B.WATER || bx < 0 || bz < 0 || bx >= W || bz >= D) continue;
+    c.swing = 1;
+    if (id === B.BEDROCK) { SFX.thunk(); return; }
+    if (id === B.TNT) { igniteTNT(bx, by, bz); const b = buddy(); if (!b.ko && Talk.can('tnt', 6)) Talk.react(b, 'tnt', true); return; }
+    breakBlock(bx, by, bz, id); return;
+  }
+  if (c.onGround) c.vy = 8.6; else if (c.inWater) c.vy = 4.5;
+}
+function petAnimal(c, m) {
+  c.yaw = Math.atan2(m.x - c.x, m.z - c.z); c.swing = 1;
+  m.vy = 5; m.fleeT = 0; m.wx = m.wz = 0; m.thinkT = 2;
+  if (SFX[m.def.sound]) SFX[m.def.sound](1);
+  for (let i = 0; i < 10; i++) particle(m.x + R(-0.4, 0.4), m.y + m.h + R(0, 0.4), m.z + R(-0.4, 0.4), pick([0xff4d7a, 0xff8fb1, 0xffc1d6]), R(0.1, 0.18), R(-0.6, 0.6), R(1, 2.2), R(-0.6, 0.6), R(0.7, 1.2), -1);
+  if (Talk.can('pet', 5)) Talk.react(c, 'pet', true);
+}
+/* ENTER: walk by itself to the nearest diamond and dig it */
+function startAuto() {
+  const c = ctrl(); if (!started || c.ko) return;
+  lastInput = now();
+  if (!diamonds.length) { Talk.react(c, 'allDone', true); return; }
+  let best = null, bd = 1e9;
+  for (const d of diamonds) { const dd = Math.hypot(d[0] + 0.5 - c.x, d[2] + 0.5 - c.z); if (dd < bd) { bd = dd; best = d; } }
+  const [x, , z] = best;
+  const stand = x <= MINE.x0 ? [48.5, z + 0.5] : x >= MINE.x1 ? [49.5, z + 0.5] : [x + 0.5, z + 1.5];
+  const inTunnel = c.x > MINE.x0 && c.x < MINE.x1 && c.z > MINE.z0 && c.z < MINE.z1 + 1;
+  auto.pts = inTunnel ? [stand] : [[clamp(c.x, 26, 47.5), 28.5], [48.5, 28.5], stand];
+  Object.assign(auto, { on: true, dia: best, best: 1e9, stuckT: 0, mineT: 0 });
+  Talk.react(c, 'go', true);
+}
+function stopAuto() { auto.on = false; const c = ctrl(); c.vx = c.vz = 0; c.moving = false; }
+function runAuto(c, dt) {
+  const d0 = auto.dia;
+  if (!d0 || getB(d0[0], d0[1], d0[2]) !== B.DIAMOND) { stopAuto(); return; }
+  if (auto.pts.length) {
+    const [tx, tz] = auto.pts[0], d = Math.hypot(tx - c.x, tz - c.z);
+    if (d < 0.35) { auto.pts.shift(); auto.best = 1e9; auto.stuckT = 0; return; }
+    moveToward(c, tx, tz, 4.8, 0); turnTo(c, Math.atan2(tx - c.x, tz - c.z), dt, 8);
+    if (d < auto.best - 0.25) { auto.best = d; auto.stuckT = 0; }
+    else if ((auto.stuckT += dt) > 2.2) { poof(c.x, c.y, c.z); c.place(tx, VY + 1, tz); poof(c.x, c.y, c.z); SFX.swap(); auto.stuckT = 0; auto.best = 1e9; }
+  } else {
+    c.vx = c.vz = 0; c.moving = false;
+    turnTo(c, Math.atan2(d0[0] + 0.5 - c.x, d0[2] + 0.5 - c.z), dt, 10);
+    if ((auto.mineT += dt) > 0.6) { c.swing = 1; breakBlock(d0[0], d0[1], d0[2], B.DIAMOND); stopAuto(); }
+  }
+}
+let sparkleT = 0;
+function sparkles(dt) {
+  if ((sparkleT -= dt) > 0) return; sparkleT = 0.2;
+  const c = ctrl();
+  for (const d of diamonds) { if (Math.hypot(d[0] - c.x, d[2] - c.z) > 30) continue; particle(d[0] + 0.5 + R(-0.6, 0.6), d[1] + 0.5 + R(-0.6, 0.6), d[2] + 0.5 + R(-0.6, 0.6), pick([0xbffffa, 0x6ff0e4, 0xffffff]), 0.07, 0, 0.5, 0, 0.6, -1); }
 }
 function updateChar(c, dt) {
   if (c.ko) { c.koT -= dt; if (c.koT <= 0) respawn(c); return; }
   c.hurtT -= dt;
-  if (c.hp < c.maxHp && now() / 1000 - c.lastHurt > 6) { c.regenT += dt; if (c.regenT > 2) { c.regenT = 0; c.hp = Math.min(c.maxHp, c.hp + 1); } }
+  if (c.hp < c.maxHp && now() / 1000 - c.lastHurt > 3) { c.regenT += dt; if (c.regenT > 0.7) { c.regenT = 0; c.hp = Math.min(c.maxHp, c.hp + 1); } }
 }
 
 /* ================= animation ================= */
@@ -1456,7 +1540,7 @@ function updateCamera(dt) {
   tmpV.copy(camera.position).add(dir); camera.lookAt(tmpV);
   if (shake > 0) { camera.position.x += R(-shake, shake) * 0.4; camera.position.y += R(-shake, shake) * 0.4; shake = Math.max(0, shake - dt * 1.2); }
   aim.block = started && !c.ko ? raycast(aim.o, aim.d, firstPerson ? 5 : 6) : null;
-  if (aim.block) { selBox.visible = true; selBox.position.set(aim.block.x + 0.5, aim.block.y + 0.5, aim.block.z + 0.5); } else selBox.visible = false;
+  selBox.visible = false;
   const inW = getB(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === B.WATER;
   scene.fog.near = inW ? 1 : 45; scene.fog.far = inW ? 14 : 120; if (inW) scene.fog.color.setRGB(0.15, 0.3, 0.7);
 }
@@ -1518,6 +1602,8 @@ function frame() {
     for (let i = ents.length - 1; i >= 0; i--) if (ents[i].removed) ents.splice(i, 1);
     for (let i = 0; i < ents.length; i++) for (let j = i + 1; j < ents.length; j++) { const a = ents[i], b = ents[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), md = a.hw + b.hw; if (d < md && d > 1e-4 && Math.abs(a.y - b.y) < 1.5) { const p = (md - d) * 0.5 / d; a.x -= dx * p * 0.5; a.z -= dz * p * 0.5; b.x += dx * p * 0.5; b.z += dz * p * 0.5; } }
     spawnLogic(dt); updateArrows(dt); updateTNT(dt); updateMusic(dt);
+    sparkles(dt);
+    if (now() - lastInput > 25000 && !auto.on && !Talk.cur && !Talk.q.length && Talk.can('hint', 30)) Talk.react(buddy().ko ? ctrl() : buddy(), isTouch ? 'hintTouch' : 'hint', false);
     idleBanter -= dt; if (idleBanter <= 0) { idleBanter = 45 + Math.random() * 30; if (!Talk.cur && !Talk.q.length && now() - Talk.last > 20000) Talk.dialog(pick(DIALOGS.banter)); }
   } else updateTime(0);
   updateParticles(dt);
@@ -1532,12 +1618,10 @@ function frame() {
 function startGame(key) {
   audioInit();
   ctrlKey = key; started = true; $('start').hidden = true;
-  camYaw = Math.PI; camPitch = -0.15;
-  if (!isTouch && canvas.requestPointerLock) canvas.requestPointerLock();
-  $('lockHint').hidden = isTouch || document.pointerLockElement === canvas;
+  camYaw = ctrl().yaw; camPitch = -0.26; lastInput = now();
   updateParty();
   if ('speechSynthesis' in window) { chooseVoices(); speechSynthesis.cancel(); }
-  setTimeout(() => Talk.dialog(DIALOGS.start), 600);
+  setTimeout(() => Talk.dialog(isTouch ? DIALOGS.startTouch : DIALOGS.start), 600);
 }
 $('pickM').onclick = () => startGame('M'); $('pickJ').onclick = () => startGame('J');
 $('pickM').disabled = $('pickJ').disabled = false;
